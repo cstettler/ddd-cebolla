@@ -12,4 +12,8 @@
     <artifactId>cebolla-sample</artifactId>
     <packaging>pom</packaging>
 
+    <modules>
+        <module>cebolla-sample-application</module>
+    </modules>
+
 </project>
