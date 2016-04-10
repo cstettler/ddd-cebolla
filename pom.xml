@@ -9,6 +9,7 @@
     <packaging>pom</packaging>
 
     <modules>
+        <module>cebolla-event</module>
         <module>cebolla-sample</module>
     </modules>
 
@@ -18,6 +19,13 @@
     
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>com.github.cstettler.ddd-cebolla</groupId>
+                <artifactId>cebolla-event</artifactId>
+                <version>${project.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
