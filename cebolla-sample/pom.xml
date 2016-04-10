@@ -14,6 +14,32 @@
 
     <modules>
         <module>cebolla-sample-application</module>
+        <module>cebolla-sample-audit</module>
+        <module>cebolla-sample-order</module>
+        <module>cebolla-sample-shipping</module>
     </modules>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.github.cstettler.ddd-cebolla</groupId>
+                <artifactId>cebolla-sample-audit</artifactId>
+                <version>${project.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.github.cstettler.ddd-cebolla</groupId>
+                <artifactId>cebolla-sample-order</artifactId>
+                <version>${project.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.github.cstettler.ddd-cebolla</groupId>
+                <artifactId>cebolla-sample-shipping</artifactId>
+                <version>${project.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
 </project>
