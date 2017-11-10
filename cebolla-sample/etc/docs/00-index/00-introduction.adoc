@@ -203,3 +203,30 @@ The following aspects are currently not within the scope of the sample applicati
 
 * user authentication
 * authorization of actions and data visibility
+
+
+== Quality Goals
+
+The following quality goals must be met:
+
+[cols="2", options="header"]
+|===
+| Goal
+| Motivation
+
+| Unneeded business complexity and "richness" should be avoided, while still covering realistic use cases without
+  over-simplification.
+| Focus of the sample application is to demonstrate the use of the various concepts provided by the ddd-cebolla
+  framework. Excessive business complexity reduces the readability and clarity of the sample application.
+  Over-simplification though turns the sample application into a non-realistic pet application that shows approaches not
+  applicable to real-world challenges.
+
+| The feature set covered should be implemented in production-ready quality.
+| Production readiness adds substantial requirements and challenges that should not just be avoided in the sample
+  application.
+
+| The features should be covered with appropriate coverage of automated unit and integration tests.
+| Implementing automated tests pose additional requirements towards framework support that should also be addressed by
+  the ddd-cebolla framework. In addition, adjusting and extending the feature set of the sample application requires
+  automated tests in order to avoid regressions.
+|===
