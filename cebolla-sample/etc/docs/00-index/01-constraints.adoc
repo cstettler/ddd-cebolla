@@ -1,0 +1,15 @@
+= Constraints
+
+The following constraints should be respected within the sample application:
+
+[cols="2", options="header"]
+|===
+| Constraint
+| Motivation
+
+| Wherever possible, the features provided by the ddd-cebolla framework should be used.
+| Main purpose of the sample application is to demonstrate concepts provided by the ddd-cebolla framework.
+
+| The domain must be implemented as a distributed system consisting of multiple bounded context.
+| Required to demonstrate several integration aspects.
+|===

@@ -6,3 +6,4 @@ cases from the bike sharing / rental domain.
 == Index
 
 * <<00-index/00-introduction.adoc#,Introduction and Goals>>
+* <<00-index/01-constraints.adoc#,Constraints>>
