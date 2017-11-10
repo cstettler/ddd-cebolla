@@ -1,0 +1,205 @@
+= Introduction and Goals
+
+== Motivation
+
+This sample application is provided for demonstrating and validating the concepts provided by the ddd-cebolla framework.
+
+== Use Cases
+
+The following use cases are part of the sample application:
+
+[cols="1, 1a,1a,1", options="header"]
+|===
+| Use Case
+| Description
+| Concepts
+| Status
+
+|
+register new user
+|
+* user signs up using mobile phone number
+* mobile phone number must be unique (only one user per mobile phone number)
+* user receives sms with verification code
+* user completes registration process using sms verification code and by providing user details
+|
+* aggregate representing multi-step process
+* value objects with validation
+* unique check on mobile phone number
+* infrastructure service for sms service integration
+* domain events (within and across bounded contexts)
+|
+unimplemented
+
+|
+view user profile
+|
+* user views own user profile
+* user profile consists of user details, current wallet balance, number of bookings
+|
+* read model with data from other bounded contexts
+|
+unimplemented
+
+|
+edit user profile
+|
+* user edits own user profile (user details, mobile phone number)
+* when editing mobile phone number, new mobile phone number needs to be verified
+* user cannot book bikes until new mobile phone number has been verified
+|
+* mutable aggregate state
+* input validation
+* multi-step process for changing mobile phone number
+* domain events for modified aggregate state
+|
+unimplemented
+
+|
+deactivate user
+|
+* fleet manager searches / selects user from list
+* fleet manager deactivates user
+|
+* read model with search
+* status change on aggregate
+* domain events
+|
+unimplemented
+
+|
+charge minutes on wallet
+|
+* user selects minutes package
+* user pays minutes via credit card
+* after successful payment, minutes are charged to wallet
+|
+* integration of external service with state / lifecycle
+* idempotency for payment events received from external system
+* domain events
+|
+unimplemented
+
+|
+add bike to fleet
+|
+* fleet manager enters bike details (vin, type, size, color, number plate)
+* vin and bike number plate must be unique
+* bike is added to fleet and gets bookable
+|
+* input validation
+* unique check on vin / bike number plate
+* domain events
+|
+unimplemented
+
+|
+remove bike from fleet
+|
+* fleet manager selects bike from list
+* fleet manager removes bike from fleet
+* removed bike is no longer bookable
+|
+* destruction of data still referenced by historic data
+* domain events
+|
+unimplemented
+
+|
+view list of bookable bikes / bike details
+|
+* user views list of bookable bikes
+* user selects bike from list
+* user views bike details
+|
+* read model with master/detail view
+|
+unimplemented
+
+|
+start booking
+|
+* user selects bike from list
+* user starts booking
+* booking can only be started, if bike is bookable, user is active and user has minutes on wallet
+* once booking is started, booked bike is no longer available for booking by other users
+|
+* business condition validation based on data from other bounded contexts
+* handling of contingency on limited resources (bike)
+|
+unimplemented
+
+|
+lock / unlock bike
+|
+* user locks / unlocks bike
+* user can only lock / unlock currently booked bike
+* lock status is reflected in bike details
+* in case of failure, lock / unlock is retried (until successful)
+|
+* idempotency (locking already locked bike)
+* ordering of dependent actions / events (lock-unlock-lock sequences)
+* infrastructure service for communication with bike
+* retry handling and potentially long-running "commands"
+|
+unimplemented
+
+|
+end booking
+|
+* user ends booking
+* user can only end own active booking
+* booking duration (rounded on minutes) is deducted from wallet
+* minimum fare is 1 minute
+* after 10 minutes duration, 10% discount applies on additional minutes
+|
+* business logic for fare calculation
+* idempotency for fare deduction
+* reference to data from other bounded contexts
+|
+unimplemented
+
+|
+update bike status
+|
+* bike status (position, lock status) is updated based on updates received from bike
+* if bike status cannot be updated for 30 minutes, bike is marked as unreachable
+* if bike status is received, bike is marked as reachable
+*
+|
+* polling for external status
+* update of status received from external systems
+* timer for handling bike reachability
+|
+unimplemented
+
+|
+view booking history
+|
+* user views history of own bookings
+* booking shows bike details, start/end position, booking duration, fare
+*
+|
+* read model with data from other bounded contexts
+|
+unimplemented
+
+|
+generate usage report
+|
+* fleet manager chooses date range and generates csv report
+* report shows bookings with user details, bike reference, booking duration, fare
+|
+* read model with data from other bounded contexts
+* report generation with bulk data
+|
+unimplemented
+|===
+
+
+== Out-Of-Scope
+
+The following aspects are currently not within the scope of the sample application:
+
+* user authentication
+* authorization of actions and data visibility

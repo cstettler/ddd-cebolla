@@ -1,0 +1,8 @@
+= Cebolla Sample Application
+
+This is the architecture documentation of the sample application for the ddd-cebolla framework. It covers several use
+cases from the bike sharing / rental domain.
+
+== Index
+
+* <<00-index/00-introduction.adoc#,Introduction and Goals>>
