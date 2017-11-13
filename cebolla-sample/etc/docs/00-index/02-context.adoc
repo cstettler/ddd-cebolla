@@ -1,0 +1,31 @@
+= Context
+
+The following sections describe the context of the domain covered by the sample application from the business,
+conceptual and technical perspective.
+
+== Business Context
+
+[plantuml, business-context, png]
+....
+left to right direction
+actor "User" << Human >>
+actor "Fleet Manager" << Human >>
+actor "Bike" << Device >>
+
+rectangle "Bike Sharing System" as BikeSharingSystem {
+    :User: -r-> (Register New User)
+    :User: -r-> (View User Profile)
+    :User: -r-> (Edit User Profile)
+    :User: -r-> (Charge Minutes On Wallet)
+    :User: -r-> (View Bike List / Details)
+    :User: -r-> (Start Booking)
+    :User: -r-> (Lock / Unlock Bike)
+    :User: -r-> (End Booking)
+    :User: -r-> (View Booking History)
+    :Fleet Manager: -l-> (Deactivate User)
+    :Fleet Manager: -l-> (Add Bike To Fleet)
+    :Fleet Manager: -l-> (Remove Bike From Fleet)
+    :Fleet Manager: -l-> (Generate Usage Report)
+    :Bike: -u-> (Update Bike Status)
+}
+....

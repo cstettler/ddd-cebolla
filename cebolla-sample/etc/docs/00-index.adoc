@@ -7,3 +7,4 @@ cases from the bike sharing / rental domain.
 
 * <<00-index/00-introduction.adoc#,Introduction and Goals>>
 * <<00-index/01-constraints.adoc#,Constraints>>
+* <<00-index/02-context.adoc#,Context>>
