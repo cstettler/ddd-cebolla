@@ -29,3 +29,32 @@ rectangle "Bike Sharing System" as BikeSharingSystem {
     :Bike: -u-> (Update Bike Status)
 }
 ....
+
+
+== Context Map
+
+[plantuml, context-map, png]
+....
+package "Bounded Context 'User'" as BoundedContextUser {
+    [User]
+    [User Registration]
+}
+
+package "Bounded Context 'Fleet'" as BoundedContextFleet {
+    [Bike]
+}
+
+package "Bounded Context 'Booking'" as BoundedContextBooking {
+    [Booking]
+}
+
+package "Bounded Context 'Accounting'" as BoundedContextAccounting {
+    [Wallet]
+}
+
+BoundedContextFleet -d-> BoundedContextBooking : available bikes
+BoundedContextBooking -d-> BoundedContextFleet : ended booking
+BoundedContextUser -d-> BoundedContextBooking : user information
+BoundedContextBooking -d-> BoundedContextAccounting : ended booking
+BoundedContextUser -d-> BoundedContextAccounting : user information
+....
