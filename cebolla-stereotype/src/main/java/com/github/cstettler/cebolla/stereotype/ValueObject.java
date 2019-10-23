@@ -1,4 +1,4 @@
-package com.github.cstettler.dscp.stereotype;
+package com.github.cstettler.cebolla.stereotype;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;

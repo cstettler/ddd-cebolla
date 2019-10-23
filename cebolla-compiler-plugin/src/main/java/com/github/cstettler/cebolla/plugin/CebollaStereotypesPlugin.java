@@ -1,6 +1,6 @@
-package com.github.cstettler.dscp;
+package com.github.cstettler.cebolla.plugin;
 
-import com.github.cstettler.dscp.stereotype.ValueObject;
+import com.github.cstettler.cebolla.stereotype.ValueObject;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.Plugin;
@@ -15,12 +15,13 @@ import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Names;
 
-import java.util.Collection;
+import java.lang.annotation.Annotation;
 
 import static com.sun.source.util.TaskEvent.Kind.PARSE;
 import static com.sun.tools.javac.code.Flags.PUBLIC;
 import static com.sun.tools.javac.code.TypeTag.BOOLEAN;
 import static com.sun.tools.javac.code.TypeTag.BOT;
+import static com.sun.tools.javac.code.TypeTag.INT;
 import static com.sun.tools.javac.tree.JCTree.Tag.EQ;
 import static com.sun.tools.javac.tree.JCTree.Tag.NE;
 import static com.sun.tools.javac.tree.JCTree.Tag.NOT;
@@ -35,7 +36,7 @@ public class CebollaStereotypesPlugin implements Plugin {
 
     @Override
     public String getName() {
-        return "CebollaStereotypes";
+        return "CebollaStereotype";
     }
 
     @Override
@@ -58,17 +59,17 @@ public class CebollaStereotypesPlugin implements Plugin {
 
                     @Override
                     public Void visitClass(ClassTree classTree, Void data) {
-                        if (annotationsOf(classTree).contains(ValueObject.class.getName())) {
+                        if (isAnnotatedBy(classTree, ValueObject.class)) {
                             addEqualsAndHashCode(classTree);
                         }
 
                         return super.visitClass(classTree, data);
                     }
 
-                    private Collection<String> annotationsOf(ClassTree classTree) {
+                    private boolean isAnnotatedBy(ClassTree classTree, Class<? extends Annotation> annotationType) {
+                        // TODO improve stereotype annotation type matching (in case of import, only simple name is returned)
                         return classTree.getModifiers().getAnnotations().stream()
-                                .map((annotation) -> annotation.getAnnotationType().toString())
-                                .collect(toList());
+                                .anyMatch((annotation) -> annotation.getAnnotationType().toString().equals(annotationType.getSimpleName()));
                     }
 
                     private void addEqualsAndHashCode(ClassTree classTree) {
@@ -157,6 +158,23 @@ public class CebollaStereotypesPlugin implements Plugin {
                                 factory.Return(factory.Literal(TRUE))
                         );
 
+                        List<JCTree.JCStatement> hashCodeStatements = of(
+                                factory.Return(
+                                        factory.Apply(
+                                                nil(),
+                                                factory.Select(
+                                                        factory.Select(factory.Select(factory.Ident(names.fromString("java")), names.fromString("util")), names.fromString("Objects")),
+                                                        names.fromString("hash")
+                                                ),
+                                                List.from(classDeclaration.getMembers().stream()
+                                                        .filter((member) -> member instanceof JCTree.JCVariableDecl)
+                                                        .map((member) -> (JCTree.JCVariableDecl) member)
+                                                        .map((fieldDeclaration) -> factory.Ident(fieldDeclaration.name)
+                                                        ).collect(toList())
+                                                )
+                                        )
+                                )
+                        );
 
                         JCTree.JCMethodDecl equalsMethodDeclaration = factory.at(classDeclaration.pos).MethodDef(
                                 factory.Modifiers(PUBLIC),
@@ -169,9 +187,19 @@ public class CebollaStereotypesPlugin implements Plugin {
                                 null
                         );
 
-                        addMethod(classDeclaration, equalsMethodDeclaration);
+                        JCTree.JCMethodDecl hashCodeMethodDeclaration = factory.at(classDeclaration.pos).MethodDef(
+                                factory.Modifiers(PUBLIC),
+                                names.fromString("hashCode"),
+                                factory.TypeIdent(INT),
+                                nil(),
+                                nil(),
+                                nil(),
+                                factory.Block(0, hashCodeStatements),
+                                null
+                        );
 
-                        System.out.println(classTree);
+                        addMethod(classDeclaration, equalsMethodDeclaration);
+                        addMethod(classDeclaration, hashCodeMethodDeclaration);
                     }
 
                     private void addMethod(JCTree.JCClassDecl classDecl, JCTree.JCMethodDecl equalsMethodDecl) {

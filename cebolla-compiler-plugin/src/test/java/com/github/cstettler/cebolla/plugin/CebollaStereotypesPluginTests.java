@@ -1,4 +1,4 @@
-package com.github.cstettler.dscp;
+package com.github.cstettler.cebolla.plugin;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -34,9 +34,11 @@ class CebollaStereotypesPluginTests {
     void compile_valueObjectWithSameState_areEqual() {
         // arrange
         String sourceCode = "" +
-                "package com.github.cstettler.dscp.test\n;" +
+                "package com.github.cstettler.cebolla.test\n;" +
                 "\n" +
-                "@com.github.cstettler.dscp.stereotype.ValueObject\n" +
+                "import com.github.cstettler.cebolla.stereotype.ValueObject;\n" +
+                "\n" +
+                "@ValueObject\n" +
                 "\n" +
                 "public class TestValueObject {\n" +
                 "   private final String valueOne;\n" +
@@ -49,7 +51,7 @@ class CebollaStereotypesPluginTests {
                 "}\n";
 
         // act + assert
-        compileAndRunTest("com.github.cstettler.dscp.test.TestValueObject", sourceCode, () -> {
+        compileAndRunTest("com.github.cstettler.cebolla.test.TestValueObject", sourceCode, () -> {
             Object instanceOne = testValueObjectWith("one", "two");
             Object instanceTwo = testValueObjectWith("one", "two");
 
@@ -61,9 +63,11 @@ class CebollaStereotypesPluginTests {
     void compile_valueObjectWithDifferentState_areNotEqual() {
         // arrange
         String sourceCode = "" +
-                "package com.github.cstettler.dscp.test\n;" +
+                "package com.github.cstettler.cebolla.test\n;" +
                 "\n" +
-                "@com.github.cstettler.dscp.stereotype.ValueObject\n" +
+                "import com.github.cstettler.cebolla.stereotype.ValueObject;\n" +
+                "\n" +
+                "@ValueObject\n" +
                 "\n" +
                 "public class TestValueObject {\n" +
                 "   private final String valueOne;\n" +
@@ -76,7 +80,7 @@ class CebollaStereotypesPluginTests {
                 "}\n";
 
         // act + assert
-        compileAndRunTest("com.github.cstettler.dscp.test.TestValueObject", sourceCode, () -> {
+        compileAndRunTest("com.github.cstettler.cebolla.test.TestValueObject", sourceCode, () -> {
             Object instanceOne = testValueObjectWith("one", "two");
             Object instanceTwo = testValueObjectWith("one", "three");
 
@@ -88,9 +92,11 @@ class CebollaStereotypesPluginTests {
     void compile_valueObjectWithDifferentNullState_areNotEqual() {
         // arrange
         String sourceCode = "" +
-                "package com.github.cstettler.dscp.test\n;" +
+                "package com.github.cstettler.cebolla.test\n;" +
                 "\n" +
-                "@com.github.cstettler.dscp.stereotype.ValueObject\n" +
+                "import com.github.cstettler.cebolla.stereotype.ValueObject;\n" +
+                "\n" +
+                "@ValueObject\n" +
                 "\n" +
                 "public class TestValueObject {\n" +
                 "   private final String valueOne;\n" +
@@ -103,7 +109,7 @@ class CebollaStereotypesPluginTests {
                 "}\n";
 
         // act + assert
-        compileAndRunTest("com.github.cstettler.dscp.test.TestValueObject", sourceCode, () -> {
+        compileAndRunTest("com.github.cstettler.cebolla.test.TestValueObject", sourceCode, () -> {
             Object instanceOne = testValueObjectWith("one", "two");
             Object instanceTwo = testValueObjectWith("one", null);
 
@@ -115,9 +121,11 @@ class CebollaStereotypesPluginTests {
     void compile_valueObjectWithSamePrimitiveTypeState_areEqual() {
         // arrange
         String sourceCode = "" +
-                "package com.github.cstettler.dscp.test\n;" +
+                "package com.github.cstettler.cebolla.test\n;" +
                 "\n" +
-                "@com.github.cstettler.dscp.stereotype.ValueObject\n" +
+                "import com.github.cstettler.cebolla.stereotype.*;\n" +
+                "\n" +
+                "@ValueObject\n" +
                 "\n" +
                 "public class TestValueObject {\n" +
                 "   private final int valueOne;\n" +
@@ -130,7 +138,7 @@ class CebollaStereotypesPluginTests {
                 "}\n";
 
         // act + assert
-        compileAndRunTest("com.github.cstettler.dscp.test.TestValueObject", sourceCode, () -> {
+        compileAndRunTest("com.github.cstettler.cebolla.test.TestValueObject", sourceCode, () -> {
             Object instanceOne = testValueObjectWith(1, true);
             Object instanceTwo = testValueObjectWith(1, true);
 
@@ -142,9 +150,11 @@ class CebollaStereotypesPluginTests {
     void compile_valueObjectWithSameArrayTypeState_areEqual() {
         // arrange
         String sourceCode = "" +
-                "package com.github.cstettler.dscp.test\n;" +
+                "package com.github.cstettler.cebolla.test\n;" +
                 "\n" +
-                "@com.github.cstettler.dscp.stereotype.ValueObject\n" +
+                "import com.github.cstettler.cebolla.stereotype.ValueObject;\n" +
+                "\n" +
+                "@ValueObject\n" +
                 "\n" +
                 "public class TestValueObject {\n" +
                 "   private final String[] valueOne;\n" +
@@ -157,7 +167,7 @@ class CebollaStereotypesPluginTests {
                 "}\n";
 
         // act + assert
-        compileAndRunTest("com.github.cstettler.dscp.test.TestValueObject", sourceCode, () -> {
+        compileAndRunTest("com.github.cstettler.cebolla.test.TestValueObject", sourceCode, () -> {
             Object instanceOne = testValueObjectWith(new String[]{"one", "two"}, new String[]{"three"});
             Object instanceTwo = testValueObjectWith(new String[]{"one", "two"}, new String[]{"three"});
 
@@ -166,7 +176,7 @@ class CebollaStereotypesPluginTests {
     }
 
     private static Object testValueObjectWith(Object... values) throws Exception {
-        Class<?> clazz = Thread.currentThread().getContextClassLoader().loadClass("com.github.cstettler.dscp.test.TestValueObject");
+        Class<?> clazz = Thread.currentThread().getContextClassLoader().loadClass("com.github.cstettler.cebolla.test.TestValueObject");
         Object instance = clazz.getConstructors()[0].newInstance(values);
 
         return instance;
@@ -179,7 +189,7 @@ class CebollaStereotypesPluginTests {
         PrintWriter writer = new PrintWriter(out);
         List<String> options = asList(
                 "-classpath", System.getProperty("java.class.path"),
-                "-Xplugin:CebollaStereotypes"
+                "-Xplugin:CebollaStereotype"
         );
 
         ClassFileRepository classFileRepository = new ClassFileRepository();
