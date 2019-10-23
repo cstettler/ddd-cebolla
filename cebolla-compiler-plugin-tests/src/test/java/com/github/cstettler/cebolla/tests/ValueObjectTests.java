@@ -1,6 +1,7 @@
 package com.github.cstettler.cebolla.tests;
 
 import com.github.cstettler.cebolla.stereotype.ValueObject;
+import nl.jqno.equalsverifier.EqualsVerifier;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,6 +33,14 @@ class ValueObjectTests {
 
         // assert
         assertThat(hashCodeOne).isEqualTo(hashCodeTwo);
+    }
+
+    @Test
+    void equalsAndHashCode_objectStateValueObject_areCorrect() {
+        EqualsVerifier
+                .forClass(ObjectStateValueObject.class)
+                .usingGetClass()
+                .verify();
     }
 
     @ValueObject
