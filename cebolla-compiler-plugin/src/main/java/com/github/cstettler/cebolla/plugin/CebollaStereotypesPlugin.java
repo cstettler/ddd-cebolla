@@ -39,6 +39,8 @@ import static java.util.stream.Collectors.toList;
 
 public class CebollaStereotypesPlugin implements Plugin {
 
+    private static final ThreadLocal<Context> CONTEXT_THREAD_LOCAL = new ThreadLocal<>();
+
     @Override
     public String getName() {
         return "CebollaStereotype";
@@ -46,7 +48,7 @@ public class CebollaStereotypesPlugin implements Plugin {
 
     @Override
     public void init(JavacTask task, String... args) {
-        Context c = ((BasicJavacTask) task).getContext();
+        Context context = ((BasicJavacTask) task).getContext();
 
         task.addTaskListener(new TaskListener() {
             @Override
@@ -66,9 +68,11 @@ public class CebollaStereotypesPlugin implements Plugin {
                     public Void visitClass(ClassTree classTree, Void data) {
                         if (isAnnotatedBy(classTree, ValueObject.class)) {
                             JCTree.JCClassDecl classDeclaration = (JCTree.JCClassDecl) classTree;
-                            
-                            addEquals(classDeclaration);
-                            addHashCode(classDeclaration);
+
+                            with(context, () -> {
+                                addEquals(classDeclaration);
+                                addHashCode(classDeclaration);
+                            });
                         }
 
                         return super.visitClass(classTree, data);
@@ -81,79 +85,79 @@ public class CebollaStereotypesPlugin implements Plugin {
                     }
 
                     private void addEquals(JCTree.JCClassDecl classDeclaration) {
-                        JCTree.JCBlock equalsBody = block(c, of(
-                                iif(c,
-                                        isEqual(c, thiz(c), identifier(c, "other")),
-                                        retuurn(c, truu(c))
+                        JCTree.JCBlock equalsBody = block(of(
+                                iif(
+                                        isEqual(thiz(), identifier("other")),
+                                        retuurn(truu())
                                 ),
-                                iif(c, or(c,
-                                        isEqual(c,
-                                                identifier(c, "other"),
-                                                nuull(c)
+                                iif(or(
+                                        isEqual(
+                                                identifier("other"),
+                                                nuull()
                                         ),
-                                        isNotEqual(c,
-                                                callTo(c, fieldOrMethod(c, "getClass")),
-                                                callTo(c, fieldOrMethod(c, "other", "getClass"))
+                                        isNotEqual(
+                                                callTo(fieldOrMethod("getClass")),
+                                                callTo(fieldOrMethod("other", "getClass"))
                                         )),
-                                        retuurn(c, falze(c))
+                                        retuurn(falze())
                                 ),
-                                cast(c, "_other", "other", classDeclaration),
-                                block(c, from(fieldsOf(classDeclaration).map((fieldDeclaration) -> {
+                                cast("_other", "other", classDeclaration),
+                                block(from(fieldsOf(classDeclaration).map((fieldDeclaration) -> {
                                             if (isPrimitive(fieldDeclaration)) {
-                                                return iif(c,
-                                                        isNotEqual(c,
-                                                                identifier(c, fieldDeclaration.name),
-                                                                fieldOrMethod(c, "_other", fieldDeclaration.name)
+                                                return iif(
+                                                        isNotEqual(
+                                                                identifier(fieldDeclaration.name),
+                                                                fieldOrMethod("_other", fieldDeclaration.name)
                                                         ),
-                                                        retuurn(c, falze(c))
+                                                        retuurn(falze())
                                                 );
                                             } else if (isArray(fieldDeclaration)) {
-                                                return iif(c,
-                                                        not(c,
-                                                                callTo(c,
-                                                                        fieldOrMethod(c, "java.util.Arrays", "equals"),
-                                                                        identifier(c, fieldDeclaration.name), fieldOrMethod(c, "_other", fieldDeclaration.name)
+                                                return iif(
+                                                        not(
+                                                                callTo(
+                                                                        fieldOrMethod("java.util.Arrays", "equals"),
+                                                                        identifier(fieldDeclaration.name), fieldOrMethod("_other", fieldDeclaration.name)
                                                                 )
                                                         ),
-                                                        retuurn(c, falze(c))
+                                                        retuurn(falze())
                                                 );
                                             } else {
-                                                return iif(c,
-                                                        not(c,
-                                                                callTo(c,
-                                                                        fieldOrMethod(c, "java.util.Objects", "equals"),
-                                                                        identifier(c, fieldDeclaration.name), fieldOrMethod(c, "_other", fieldDeclaration.name)
+                                                return iif(
+                                                        not(
+                                                                callTo(
+                                                                        fieldOrMethod("java.util.Objects", "equals"),
+                                                                        identifier(fieldDeclaration.name), fieldOrMethod("_other", fieldDeclaration.name)
                                                                 )
                                                         ),
-                                                        retuurn(c, falze(c))
+                                                        retuurn(falze())
                                                 );
                                             }
                                         }
                                         ).collect(toList())
                                 )),
-                                retuurn(c, truu(c))
+                                retuurn(truu())
                         ));
 
-                        addMethod(classDeclaration, method(c,
+                        addMethod(classDeclaration, method(
                                 PUBLIC,
                                 BOOLEAN,
                                 "equals",
-                                of(parameter(c, classDeclaration, "other", Symtab.instance(c).objectType)),
+                                of(parameter(classDeclaration, "other", Symtab.instance(context()).objectType)),
                                 equalsBody
                         ));
                     }
 
                     private void addHashCode(JCTree.JCClassDecl classDeclaration) {
-                        JCTree.JCBlock hashCodeBody = block(c, of(
-                                retuurn(c,
-                                        callTo(c,
-                                                fieldOrMethod(c, "java.util.Objects", "hash"),
-                                                arguments(fieldsOf(classDeclaration).map((fieldDeclaration) -> identifier(c, fieldDeclaration.name)))
+                        JCTree.JCBlock hashCodeBody = block(of(
+                                retuurn(
+                                        callTo(
+                                                fieldOrMethod("java.util.Objects", "hash"),
+                                                arguments(fieldsOf(classDeclaration).map((fieldDeclaration) -> identifier(fieldDeclaration.name)))
                                         )
                                 )
                         ));
 
-                        addMethod(classDeclaration, method(c,
+                        addMethod(classDeclaration, method(
                                 PUBLIC,
                                 INT,
                                 "hashCode",
@@ -166,6 +170,16 @@ public class CebollaStereotypesPlugin implements Plugin {
         });
     }
 
+    private static void with(Context context, Runnable runnable) {
+        try {
+            CONTEXT_THREAD_LOCAL.set(context);
+
+            runnable.run();
+        } finally {
+            CONTEXT_THREAD_LOCAL.remove();
+        }
+    }
+
     private static void addMethod(JCTree.JCClassDecl classDecl, JCTree.JCMethodDecl equalsMethodDecl) {
         classDecl.defs = classDecl.defs.append(equalsMethodDecl);
     }
@@ -174,11 +188,11 @@ public class CebollaStereotypesPlugin implements Plugin {
         return from(stream.collect(toList()));
     }
 
-    private JCTree.JCMethodDecl method(Context c, int modifier, TypeTag returnType, String name, List<JCTree.JCVariableDecl> parameters, JCTree.JCBlock equalsBody) {
-        return TreeMaker.instance(c).MethodDef(
-                TreeMaker.instance(c).Modifiers(modifier),
-                Names.instance(c).fromString(name),
-                TreeMaker.instance(c).TypeIdent(returnType),
+    private static JCTree.JCMethodDecl method(int modifier, TypeTag returnType, String name, List<JCTree.JCVariableDecl> parameters, JCTree.JCBlock equalsBody) {
+        return TreeMaker.instance(context()).MethodDef(
+                TreeMaker.instance(context()).Modifiers(modifier),
+                Names.instance(context()).fromString(name),
+                TreeMaker.instance(context()).TypeIdent(returnType),
                 nil(),
                 parameters,
                 nil(),
@@ -193,16 +207,16 @@ public class CebollaStereotypesPlugin implements Plugin {
                 .map((member) -> (JCTree.JCVariableDecl) member);
     }
 
-    private JCTree.JCVariableDecl parameter(Context c, JCTree.JCClassDecl classDeclaration, String parameterName, Type parameterType) {
-        return TreeMaker.instance(c).at(classDeclaration.pos).Param(Names.instance(c).fromString(parameterName), parameterType, null);
+    private static JCTree.JCVariableDecl parameter(JCTree.JCClassDecl classDeclaration, String parameterName, Type parameterType) {
+        return TreeMaker.instance(context()).at(classDeclaration.pos).Param(Names.instance(context()).fromString(parameterName), parameterType, null);
     }
 
-    private static JCTree.JCBlock block(Context c, List<JCTree.JCStatement> statements) {
-        return TreeMaker.instance(c).Block(0, statements);
+    private static JCTree.JCBlock block(List<JCTree.JCStatement> statements) {
+        return TreeMaker.instance(context()).Block(0, statements);
     }
 
-    private static JCTree.JCUnary not(Context c, JCTree.JCMethodInvocation invocation) {
-        return TreeMaker.instance(c).Unary(NOT,
+    private static JCTree.JCUnary not(JCTree.JCMethodInvocation invocation) {
+        return TreeMaker.instance(context()).Unary(NOT,
                 invocation
         );
     }
@@ -211,114 +225,118 @@ public class CebollaStereotypesPlugin implements Plugin {
         return fieldDeclaration.vartype instanceof JCTree.JCArrayTypeTree;
     }
 
-    private static JCTree.JCIdent identifier(Context c, Name name) {
-        return TreeMaker.instance(c).Ident(name);
+    private static JCTree.JCIdent identifier(Name name) {
+        return TreeMaker.instance(context()).Ident(name);
     }
 
     private static boolean isPrimitive(JCTree.JCVariableDecl fieldDeclaration) {
         return fieldDeclaration.vartype instanceof JCTree.JCPrimitiveTypeTree;
     }
 
-    private static JCTree.JCLiteral falze(Context context) {
-        return TreeMaker.instance(context).Literal(FALSE);
+    private static JCTree.JCLiteral falze() {
+        return TreeMaker.instance(context()).Literal(FALSE);
     }
 
-    private static JCTree.JCLiteral nuull(Context context) {
-        return TreeMaker.instance(context).Literal(BOT, null);
+    private static JCTree.JCLiteral nuull() {
+        return TreeMaker.instance(context()).Literal(BOT, null);
     }
 
-    private JCTree.JCBinary or(Context context, JCTree.JCExpression left, JCTree.JCExpression right) {
-        return TreeMaker.instance(context).Binary(OR,
+    private static JCTree.JCBinary or(JCTree.JCExpression left, JCTree.JCExpression right) {
+        return TreeMaker.instance(context()).Binary(OR,
                 left,
                 right
         );
     }
 
-    private JCTree.JCBinary isNotEqual(Context context, JCTree.JCExpression left, JCTree.JCExpression right) {
-        return TreeMaker.instance(context).Binary(
+    private static JCTree.JCBinary isNotEqual(JCTree.JCExpression left, JCTree.JCExpression right) {
+        return TreeMaker.instance(context()).Binary(
                 NE,
                 left,
                 right
         );
     }
 
-    private JCTree.JCMethodInvocation callTo(Context context, JCTree.JCExpression method, JCTree.JCExpression... arguments) {
-        return callTo(context, method, from(arguments));
+    private static JCTree.JCMethodInvocation callTo(JCTree.JCExpression method, JCTree.JCExpression... arguments) {
+        return callTo(method, from(arguments));
     }
 
-    private JCTree.JCMethodInvocation callTo(Context context, JCTree.JCExpression method, List<JCTree.JCExpression> arguments) {
-        return TreeMaker.instance(context).Apply(nil(), method, arguments);
+    private static JCTree.JCMethodInvocation callTo(JCTree.JCExpression method, List<JCTree.JCExpression> arguments) {
+        return TreeMaker.instance(context()).Apply(nil(), method, arguments);
     }
 
-    private static JCTree.JCFieldAccess fieldOrMethod(Context context, String fieldOrMethod) {
-        return TreeMaker.instance(context).Select(thiz(context), Names.instance(context).fromString(fieldOrMethod));
+    private static JCTree.JCFieldAccess fieldOrMethod(String fieldOrMethod) {
+        return TreeMaker.instance(context()).Select(thiz(), Names.instance(context()).fromString(fieldOrMethod));
     }
 
-    private static JCTree.JCFieldAccess fieldOrMethod(Context context, String target, String fieldOrMethod) {
-        return fieldOrMethod(context, target, Names.instance(context).fromString(fieldOrMethod));
+    private static JCTree.JCFieldAccess fieldOrMethod(String target, String fieldOrMethod) {
+        return fieldOrMethod(target, Names.instance(context()).fromString(fieldOrMethod));
     }
 
-    private static JCTree.JCFieldAccess fieldOrMethod(Context context, String target, Name fieldOrMethod) {
+    private static JCTree.JCFieldAccess fieldOrMethod(String target, Name fieldOrMethod) {
         if (target.contains(".")) {
             String[] classNameParts = target.split("\\.");
-            JCTree.JCExpression classIdentifier = identifier(context, classNameParts[0]);
+            JCTree.JCExpression classIdentifier = identifier(classNameParts[0]);
 
             for (int i = 1; i < classNameParts.length; i++) {
-                classIdentifier = TreeMaker.instance(context).Select(classIdentifier, Names.instance(context).fromString(classNameParts[i]));
+                classIdentifier = TreeMaker.instance(context()).Select(classIdentifier, Names.instance(context()).fromString(classNameParts[i]));
             }
 
-            return TreeMaker.instance(context).Select(
+            return TreeMaker.instance(context()).Select(
                     classIdentifier,
                     fieldOrMethod
             );
         } else {
-            return TreeMaker.instance(context).Select(identifier(context, target), fieldOrMethod);
+            return TreeMaker.instance(context()).Select(identifier(target), fieldOrMethod);
         }
     }
 
-    private static JCTree.JCVariableDecl cast(Context context, String targetVariableName, String sourceVariableName, JCTree.JCClassDecl targetType) {
-        return TreeMaker.instance(context).VarDef(
-                TreeMaker.instance(context).Modifiers(0),
-                Names.instance(context).fromString(targetVariableName),
-                identifier(context, targetType.name),
-                TreeMaker.instance(context).TypeCast(identifier(context, targetType.name), identifier(context, sourceVariableName))
+    private static JCTree.JCVariableDecl cast(String targetVariableName, String sourceVariableName, JCTree.JCClassDecl targetType) {
+        return TreeMaker.instance(context()).VarDef(
+                TreeMaker.instance(context()).Modifiers(0),
+                Names.instance(context()).fromString(targetVariableName),
+                identifier(targetType.name),
+                TreeMaker.instance(context()).TypeCast(identifier(targetType.name), identifier(sourceVariableName))
         );
     }
 
-    private static JCTree.JCIf iif(Context context, JCTree.JCExpression condition, JCTree.JCStatement body) {
-        return TreeMaker.instance(context).If(
+    private static JCTree.JCIf iif(JCTree.JCExpression condition, JCTree.JCStatement body) {
+        return TreeMaker.instance(context()).If(
                 condition,
                 body,
                 null
         );
     }
 
-    private JCTree.JCReturn retuurn(Context context, JCTree.JCExpression value) {
-        return TreeMaker.instance(context).Return(value);
+    private static JCTree.JCReturn retuurn(JCTree.JCExpression value) {
+        return TreeMaker.instance(context()).Return(value);
     }
 
-    private JCTree.JCLiteral truu(Context context) {
-        return TreeMaker.instance(context).Literal(TRUE);
+    private static JCTree.JCLiteral truu() {
+        return TreeMaker.instance(context()).Literal(TRUE);
     }
 
-    private static JCTree.JCExpression thiz(Context context) {
-        TreeMaker factory = TreeMaker.instance(context);
-        Symtab symtab = Symtab.instance(context);
+    private static JCTree.JCExpression thiz() {
+        TreeMaker factory = TreeMaker.instance(context());
+        Symtab symtab = Symtab.instance(context());
 
         return factory.This(symtab.objectType);
     }
 
-    private static JCTree.JCIdent identifier(Context context, String name) {
-        TreeMaker factory = TreeMaker.instance(context);
-        Names names = Names.instance(context);
+    private static JCTree.JCIdent identifier(String name) {
+        TreeMaker factory = TreeMaker.instance(context());
+        Names names = Names.instance(context());
 
         return factory.Ident(names.fromString(name));
     }
 
-    private JCTree.JCBinary isEqual(Context context, JCTree.JCExpression left, JCTree.JCExpression right) {
-        TreeMaker factory = TreeMaker.instance(context);
+    private static JCTree.JCBinary isEqual(JCTree.JCExpression left, JCTree.JCExpression right) {
+        TreeMaker factory = TreeMaker.instance(context());
 
         return factory.Binary(EQ, left, right);
+    }
+
+    private static Context context() {
+        return CONTEXT_THREAD_LOCAL.get();
     }
 
 }
