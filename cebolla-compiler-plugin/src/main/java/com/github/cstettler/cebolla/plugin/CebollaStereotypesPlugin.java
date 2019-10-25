@@ -9,13 +9,17 @@ import com.sun.source.util.TaskListener;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.code.Symtab;
+import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.TypeTag;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
+import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 
 import java.lang.annotation.Annotation;
+import java.util.stream.Stream;
 
 import static com.sun.source.util.TaskEvent.Kind.PARSE;
 import static com.sun.tools.javac.code.Flags.PUBLIC;
@@ -26,6 +30,7 @@ import static com.sun.tools.javac.tree.JCTree.Tag.EQ;
 import static com.sun.tools.javac.tree.JCTree.Tag.NE;
 import static com.sun.tools.javac.tree.JCTree.Tag.NOT;
 import static com.sun.tools.javac.tree.JCTree.Tag.OR;
+import static com.sun.tools.javac.util.List.from;
 import static com.sun.tools.javac.util.List.nil;
 import static com.sun.tools.javac.util.List.of;
 import static java.lang.Boolean.FALSE;
@@ -41,7 +46,7 @@ public class CebollaStereotypesPlugin implements Plugin {
 
     @Override
     public void init(JavacTask task, String... args) {
-        Context context = ((BasicJavacTask) task).getContext();
+        Context c = ((BasicJavacTask) task).getContext();
 
         task.addTaskListener(new TaskListener() {
             @Override
@@ -60,7 +65,10 @@ public class CebollaStereotypesPlugin implements Plugin {
                     @Override
                     public Void visitClass(ClassTree classTree, Void data) {
                         if (isAnnotatedBy(classTree, ValueObject.class)) {
-                            addEqualsAndHashCode(classTree);
+                            JCTree.JCClassDecl classDeclaration = (JCTree.JCClassDecl) classTree;
+                            
+                            addEquals(classDeclaration);
+                            addHashCode(classDeclaration);
                         }
 
                         return super.visitClass(classTree, data);
@@ -72,142 +80,245 @@ public class CebollaStereotypesPlugin implements Plugin {
                                 .anyMatch((annotation) -> annotation.getAnnotationType().toString().equals(annotationType.getSimpleName()));
                     }
 
-                    private void addEqualsAndHashCode(ClassTree classTree) {
-                        JCTree.JCClassDecl classDeclaration = (JCTree.JCClassDecl) classTree;
-
-                        TreeMaker factory = TreeMaker.instance(context);
-                        Names names = Names.instance(context);
-                        Symtab symtab = Symtab.instance(context);
-
-                        List<JCTree.JCStatement> equalStatements = of(
-                                factory.If(
-                                        factory.Binary(EQ, factory.This(symtab.objectType), factory.Ident(names.fromString("other"))),
-                                        factory.Return(factory.Literal(TRUE)),
-                                        null
+                    private void addEquals(JCTree.JCClassDecl classDeclaration) {
+                        JCTree.JCBlock equalsBody = block(c, of(
+                                iif(c,
+                                        isEqual(c, thiz(c), identifier(c, "other")),
+                                        retuurn(c, truu(c))
                                 ),
-                                factory.If(
-                                        factory.Binary(OR,
-                                                factory.Binary(
-                                                        EQ,
-                                                        factory.Ident(names.fromString("other")),
-                                                        factory.Literal(BOT, null)
-                                                ),
-                                                factory.Binary(
-                                                        NE,
-                                                        factory.Apply(nil(), factory.Ident(names.fromString("getClass")), nil()),
-                                                        factory.Apply(nil(), factory.Select(factory.Ident(names.fromString("other")), names.fromString("getClass")), nil())
-                                                )
+                                iif(c, or(c,
+                                        isEqual(c,
+                                                identifier(c, "other"),
+                                                nuull(c)
                                         ),
-                                        factory.Return(factory.Literal(FALSE)),
-                                        null
+                                        isNotEqual(c,
+                                                callTo(c, fieldOrMethod(c, "getClass")),
+                                                callTo(c, fieldOrMethod(c, "other", "getClass"))
+                                        )),
+                                        retuurn(c, falze(c))
                                 ),
-                                factory.VarDef(
-                                        factory.Modifiers(0),
-                                        names.fromString("_other"),
-                                        factory.Ident(classDeclaration.name),
-                                        factory.TypeCast(factory.Ident(classDeclaration.name), factory.Ident(names.fromString("other")))
-                                ),
-                                factory.Block(
-                                        0,
-                                        List.from(classDeclaration.getMembers().stream()
-                                                .filter((member) -> member instanceof JCTree.JCVariableDecl)
-                                                .map((member) -> (JCTree.JCVariableDecl) member)
-                                                .map((fieldDeclaration) -> {
-                                                            if (fieldDeclaration.vartype instanceof JCTree.JCPrimitiveTypeTree) {
-                                                                return factory.If(
-                                                                        factory.Binary(
-                                                                                NE,
-                                                                                factory.Ident(fieldDeclaration.name),
-                                                                                factory.Select(factory.Ident(names.fromString("_other")), fieldDeclaration.name)
-                                                                        ),
-                                                                        factory.Return(factory.Literal(FALSE)),
-                                                                        null);
-                                                            } else if (fieldDeclaration.vartype instanceof JCTree.JCArrayTypeTree) {
-                                                                return factory.If(
-                                                                        factory.Unary(NOT,
-                                                                                factory.Apply(
-                                                                                        nil(),
-                                                                                        factory.Select(
-                                                                                                factory.Select(factory.Select(factory.Ident(names.fromString("java")), names.fromString("util")), names.fromString("Arrays")),
-                                                                                                names.fromString("equals")
-                                                                                        ),
-                                                                                        of(factory.Ident(fieldDeclaration.name), factory.Select(factory.Ident(names.fromString("_other")), fieldDeclaration.name))
-                                                                                )
-                                                                        ),
-                                                                        factory.Return(factory.Literal(FALSE)),
-                                                                        null);
-                                                            } else {
-                                                                return factory.If(
-                                                                        factory.Unary(NOT,
-                                                                                factory.Apply(
-                                                                                        nil(),
-                                                                                        factory.Select(
-                                                                                                factory.Select(factory.Select(factory.Ident(names.fromString("java")), names.fromString("util")), names.fromString("Objects")),
-                                                                                                names.fromString("equals")
-                                                                                        ),
-                                                                                        of(factory.Ident(fieldDeclaration.name), factory.Select(factory.Ident(names.fromString("_other")), fieldDeclaration.name))
-                                                                                )
-                                                                        ),
-                                                                        factory.Return(factory.Literal(FALSE)),
-                                                                        null);
-                                                            }
-                                                        }
-                                                ).collect(toList())
-                                        )
-                                ),
-                                factory.Return(factory.Literal(TRUE))
-                        );
+                                cast(c, "_other", "other", classDeclaration),
+                                block(c, from(fieldsOf(classDeclaration).map((fieldDeclaration) -> {
+                                            if (isPrimitive(fieldDeclaration)) {
+                                                return iif(c,
+                                                        isNotEqual(c,
+                                                                identifier(c, fieldDeclaration.name),
+                                                                fieldOrMethod(c, "_other", fieldDeclaration.name)
+                                                        ),
+                                                        retuurn(c, falze(c))
+                                                );
+                                            } else if (isArray(fieldDeclaration)) {
+                                                return iif(c,
+                                                        not(c,
+                                                                callTo(c,
+                                                                        fieldOrMethod(c, "java.util.Arrays", "equals"),
+                                                                        identifier(c, fieldDeclaration.name), fieldOrMethod(c, "_other", fieldDeclaration.name)
+                                                                )
+                                                        ),
+                                                        retuurn(c, falze(c))
+                                                );
+                                            } else {
+                                                return iif(c,
+                                                        not(c,
+                                                                callTo(c,
+                                                                        fieldOrMethod(c, "java.util.Objects", "equals"),
+                                                                        identifier(c, fieldDeclaration.name), fieldOrMethod(c, "_other", fieldDeclaration.name)
+                                                                )
+                                                        ),
+                                                        retuurn(c, falze(c))
+                                                );
+                                            }
+                                        }
+                                        ).collect(toList())
+                                )),
+                                retuurn(c, truu(c))
+                        ));
 
-                        List<JCTree.JCStatement> hashCodeStatements = of(
-                                factory.Return(
-                                        factory.Apply(
-                                                nil(),
-                                                factory.Select(
-                                                        factory.Select(factory.Select(factory.Ident(names.fromString("java")), names.fromString("util")), names.fromString("Objects")),
-                                                        names.fromString("hash")
-                                                ),
-                                                List.from(classDeclaration.getMembers().stream()
-                                                        .filter((member) -> member instanceof JCTree.JCVariableDecl)
-                                                        .map((member) -> (JCTree.JCVariableDecl) member)
-                                                        .map((fieldDeclaration) -> factory.Ident(fieldDeclaration.name)
-                                                        ).collect(toList())
-                                                )
-                                        )
-                                )
-                        );
-
-                        JCTree.JCMethodDecl equalsMethodDeclaration = factory.at(classDeclaration.pos).MethodDef(
-                                factory.Modifiers(PUBLIC),
-                                names.fromString("equals"),
-                                factory.TypeIdent(BOOLEAN),
-                                nil(),
-                                of(factory.Param(names.fromString("other"), symtab.objectType, null)),
-                                nil(),
-                                factory.Block(0, equalStatements),
-                                null
-                        );
-
-                        JCTree.JCMethodDecl hashCodeMethodDeclaration = factory.at(classDeclaration.pos).MethodDef(
-                                factory.Modifiers(PUBLIC),
-                                names.fromString("hashCode"),
-                                factory.TypeIdent(INT),
-                                nil(),
-                                nil(),
-                                nil(),
-                                factory.Block(0, hashCodeStatements),
-                                null
-                        );
-
-                        addMethod(classDeclaration, equalsMethodDeclaration);
-                        addMethod(classDeclaration, hashCodeMethodDeclaration);
+                        addMethod(classDeclaration, method(c,
+                                PUBLIC,
+                                BOOLEAN,
+                                "equals",
+                                of(parameter(c, classDeclaration, "other", Symtab.instance(c).objectType)),
+                                equalsBody
+                        ));
                     }
 
-                    private void addMethod(JCTree.JCClassDecl classDecl, JCTree.JCMethodDecl equalsMethodDecl) {
-                        classDecl.defs = classDecl.defs.append(equalsMethodDecl);
+                    private void addHashCode(JCTree.JCClassDecl classDeclaration) {
+                        JCTree.JCBlock hashCodeBody = block(c, of(
+                                retuurn(c,
+                                        callTo(c,
+                                                fieldOrMethod(c, "java.util.Objects", "hash"),
+                                                arguments(fieldsOf(classDeclaration).map((fieldDeclaration) -> identifier(c, fieldDeclaration.name)))
+                                        )
+                                )
+                        ));
+
+                        addMethod(classDeclaration, method(c,
+                                PUBLIC,
+                                INT,
+                                "hashCode",
+                                nil(),
+                                hashCodeBody
+                        ));
                     }
                 }, null);
             }
         });
+    }
+
+    private static void addMethod(JCTree.JCClassDecl classDecl, JCTree.JCMethodDecl equalsMethodDecl) {
+        classDecl.defs = classDecl.defs.append(equalsMethodDecl);
+    }
+
+    private static List<JCTree.JCExpression> arguments(Stream<JCTree.JCExpression> stream) {
+        return from(stream.collect(toList()));
+    }
+
+    private JCTree.JCMethodDecl method(Context c, int modifier, TypeTag returnType, String name, List<JCTree.JCVariableDecl> parameters, JCTree.JCBlock equalsBody) {
+        return TreeMaker.instance(c).MethodDef(
+                TreeMaker.instance(c).Modifiers(modifier),
+                Names.instance(c).fromString(name),
+                TreeMaker.instance(c).TypeIdent(returnType),
+                nil(),
+                parameters,
+                nil(),
+                equalsBody,
+                null
+        );
+    }
+
+    private static Stream<JCTree.JCVariableDecl> fieldsOf(JCTree.JCClassDecl classDeclaration) {
+        return classDeclaration.getMembers().stream()
+                .filter((member) -> member instanceof JCTree.JCVariableDecl)
+                .map((member) -> (JCTree.JCVariableDecl) member);
+    }
+
+    private JCTree.JCVariableDecl parameter(Context c, JCTree.JCClassDecl classDeclaration, String parameterName, Type parameterType) {
+        return TreeMaker.instance(c).at(classDeclaration.pos).Param(Names.instance(c).fromString(parameterName), parameterType, null);
+    }
+
+    private static JCTree.JCBlock block(Context c, List<JCTree.JCStatement> statements) {
+        return TreeMaker.instance(c).Block(0, statements);
+    }
+
+    private static JCTree.JCUnary not(Context c, JCTree.JCMethodInvocation invocation) {
+        return TreeMaker.instance(c).Unary(NOT,
+                invocation
+        );
+    }
+
+    private static boolean isArray(JCTree.JCVariableDecl fieldDeclaration) {
+        return fieldDeclaration.vartype instanceof JCTree.JCArrayTypeTree;
+    }
+
+    private static JCTree.JCIdent identifier(Context c, Name name) {
+        return TreeMaker.instance(c).Ident(name);
+    }
+
+    private static boolean isPrimitive(JCTree.JCVariableDecl fieldDeclaration) {
+        return fieldDeclaration.vartype instanceof JCTree.JCPrimitiveTypeTree;
+    }
+
+    private static JCTree.JCLiteral falze(Context context) {
+        return TreeMaker.instance(context).Literal(FALSE);
+    }
+
+    private static JCTree.JCLiteral nuull(Context context) {
+        return TreeMaker.instance(context).Literal(BOT, null);
+    }
+
+    private JCTree.JCBinary or(Context context, JCTree.JCExpression left, JCTree.JCExpression right) {
+        return TreeMaker.instance(context).Binary(OR,
+                left,
+                right
+        );
+    }
+
+    private JCTree.JCBinary isNotEqual(Context context, JCTree.JCExpression left, JCTree.JCExpression right) {
+        return TreeMaker.instance(context).Binary(
+                NE,
+                left,
+                right
+        );
+    }
+
+    private JCTree.JCMethodInvocation callTo(Context context, JCTree.JCExpression method, JCTree.JCExpression... arguments) {
+        return callTo(context, method, from(arguments));
+    }
+
+    private JCTree.JCMethodInvocation callTo(Context context, JCTree.JCExpression method, List<JCTree.JCExpression> arguments) {
+        return TreeMaker.instance(context).Apply(nil(), method, arguments);
+    }
+
+    private static JCTree.JCFieldAccess fieldOrMethod(Context context, String fieldOrMethod) {
+        return TreeMaker.instance(context).Select(thiz(context), Names.instance(context).fromString(fieldOrMethod));
+    }
+
+    private static JCTree.JCFieldAccess fieldOrMethod(Context context, String target, String fieldOrMethod) {
+        return fieldOrMethod(context, target, Names.instance(context).fromString(fieldOrMethod));
+    }
+
+    private static JCTree.JCFieldAccess fieldOrMethod(Context context, String target, Name fieldOrMethod) {
+        if (target.contains(".")) {
+            String[] classNameParts = target.split("\\.");
+            JCTree.JCExpression classIdentifier = identifier(context, classNameParts[0]);
+
+            for (int i = 1; i < classNameParts.length; i++) {
+                classIdentifier = TreeMaker.instance(context).Select(classIdentifier, Names.instance(context).fromString(classNameParts[i]));
+            }
+
+            return TreeMaker.instance(context).Select(
+                    classIdentifier,
+                    fieldOrMethod
+            );
+        } else {
+            return TreeMaker.instance(context).Select(identifier(context, target), fieldOrMethod);
+        }
+    }
+
+    private static JCTree.JCVariableDecl cast(Context context, String targetVariableName, String sourceVariableName, JCTree.JCClassDecl targetType) {
+        return TreeMaker.instance(context).VarDef(
+                TreeMaker.instance(context).Modifiers(0),
+                Names.instance(context).fromString(targetVariableName),
+                identifier(context, targetType.name),
+                TreeMaker.instance(context).TypeCast(identifier(context, targetType.name), identifier(context, sourceVariableName))
+        );
+    }
+
+    private static JCTree.JCIf iif(Context context, JCTree.JCExpression condition, JCTree.JCStatement body) {
+        return TreeMaker.instance(context).If(
+                condition,
+                body,
+                null
+        );
+    }
+
+    private JCTree.JCReturn retuurn(Context context, JCTree.JCExpression value) {
+        return TreeMaker.instance(context).Return(value);
+    }
+
+    private JCTree.JCLiteral truu(Context context) {
+        return TreeMaker.instance(context).Literal(TRUE);
+    }
+
+    private static JCTree.JCExpression thiz(Context context) {
+        TreeMaker factory = TreeMaker.instance(context);
+        Symtab symtab = Symtab.instance(context);
+
+        return factory.This(symtab.objectType);
+    }
+
+    private static JCTree.JCIdent identifier(Context context, String name) {
+        TreeMaker factory = TreeMaker.instance(context);
+        Names names = Names.instance(context);
+
+        return factory.Ident(names.fromString(name));
+    }
+
+    private JCTree.JCBinary isEqual(Context context, JCTree.JCExpression left, JCTree.JCExpression right) {
+        TreeMaker factory = TreeMaker.instance(context);
+
+        return factory.Binary(EQ, left, right);
     }
 
 }
