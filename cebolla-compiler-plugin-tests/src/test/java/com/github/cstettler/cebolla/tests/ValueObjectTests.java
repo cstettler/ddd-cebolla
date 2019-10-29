@@ -22,6 +22,19 @@ class ValueObjectTests {
     }
 
     @Test
+    void equals_valueObjectWithDifferentObjectState_returnsFalse() {
+        // arrange
+        ObjectStateValueObject instanceOne = new ObjectStateValueObject("one", "two");
+        ObjectStateValueObject instanceTwo = new ObjectStateValueObject("one", "three");
+
+        // act
+        boolean result = instanceOne.equals(instanceTwo);
+
+        // assert
+        assertThat(result).isFalse();
+    }
+
+    @Test
     void hashCode_valueObjectWithSameObjectState_returnsSameValue() {
         // arrange
         ObjectStateValueObject instanceOne = new ObjectStateValueObject("one", "two");
@@ -36,7 +49,21 @@ class ValueObjectTests {
     }
 
     @Test
-    void equalsAndHashCode_objectStateValueObject_areCorrect() {
+    void hashCode_valueObjectWithDifferentObjectState_returnsDifferentValues() {
+        // arrange
+        ObjectStateValueObject instanceOne = new ObjectStateValueObject("one", "two");
+        ObjectStateValueObject instanceTwo = new ObjectStateValueObject("one", "three");
+
+        // act
+        int hashCodeOne = instanceOne.hashCode();
+        int hashCodeTwo = instanceTwo.hashCode();
+
+        // assert
+        assertThat(hashCodeOne).isNotEqualTo(hashCodeTwo);
+    }
+
+    @Test
+    void equalsAndHashCode_objectStateValueObject_areFormallyCorrect() {
         EqualsVerifier
                 .forClass(ObjectStateValueObject.class)
                 .usingGetClass()
