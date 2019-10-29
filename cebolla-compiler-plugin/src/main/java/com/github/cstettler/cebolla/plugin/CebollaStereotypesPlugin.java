@@ -11,7 +11,22 @@ import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTag;
-import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.JCTree.JCArrayTypeTree;
+import com.sun.tools.javac.tree.JCTree.JCBinary;
+import com.sun.tools.javac.tree.JCTree.JCBlock;
+import com.sun.tools.javac.tree.JCTree.JCClassDecl;
+import com.sun.tools.javac.tree.JCTree.JCExpression;
+import com.sun.tools.javac.tree.JCTree.JCFieldAccess;
+import com.sun.tools.javac.tree.JCTree.JCIdent;
+import com.sun.tools.javac.tree.JCTree.JCIf;
+import com.sun.tools.javac.tree.JCTree.JCLiteral;
+import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
+import com.sun.tools.javac.tree.JCTree.JCMethodInvocation;
+import com.sun.tools.javac.tree.JCTree.JCPrimitiveTypeTree;
+import com.sun.tools.javac.tree.JCTree.JCReturn;
+import com.sun.tools.javac.tree.JCTree.JCStatement;
+import com.sun.tools.javac.tree.JCTree.JCUnary;
+import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
@@ -67,7 +82,7 @@ public class CebollaStereotypesPlugin implements Plugin {
                     @Override
                     public Void visitClass(ClassTree classTree, Void data) {
                         if (isAnnotatedBy(classTree, ValueObject.class)) {
-                            JCTree.JCClassDecl classDeclaration = (JCTree.JCClassDecl) classTree;
+                            JCClassDecl classDeclaration = (JCClassDecl) classTree;
 
                             with(context, () -> {
                                 addEquals(classDeclaration);
@@ -84,8 +99,8 @@ public class CebollaStereotypesPlugin implements Plugin {
                                 .anyMatch((annotation) -> annotation.getAnnotationType().toString().equals(annotationType.getSimpleName()));
                     }
 
-                    private void addEquals(JCTree.JCClassDecl classDeclaration) {
-                        JCTree.JCBlock equalsBody = block(of(
+                    private void addEquals(JCClassDecl classDeclaration) {
+                        JCBlock equalsBody = block(of(
                                 iif(
                                         isEqual(thiz(), identifier("other")),
                                         retuurn(truu())
@@ -147,8 +162,8 @@ public class CebollaStereotypesPlugin implements Plugin {
                         ));
                     }
 
-                    private void addHashCode(JCTree.JCClassDecl classDeclaration) {
-                        JCTree.JCBlock hashCodeBody = block(of(
+                    private void addHashCode(JCClassDecl classDeclaration) {
+                        JCBlock hashCodeBody = block(of(
                                 retuurn(
                                         callTo(
                                                 fieldOrMethod("java.util.Objects", "hash"),
@@ -180,15 +195,15 @@ public class CebollaStereotypesPlugin implements Plugin {
         }
     }
 
-    private static void addMethod(JCTree.JCClassDecl classDecl, JCTree.JCMethodDecl equalsMethodDecl) {
+    private static void addMethod(JCClassDecl classDecl, JCMethodDecl equalsMethodDecl) {
         classDecl.defs = classDecl.defs.append(equalsMethodDecl);
     }
 
-    private static List<JCTree.JCExpression> arguments(Stream<JCTree.JCExpression> stream) {
+    private static List<JCExpression> arguments(Stream<JCExpression> stream) {
         return from(stream.collect(toList()));
     }
 
-    private static JCTree.JCMethodDecl method(int modifier, TypeTag returnType, String name, List<JCTree.JCVariableDecl> parameters, JCTree.JCBlock equalsBody) {
+    private static JCMethodDecl method(int modifier, TypeTag returnType, String name, List<JCVariableDecl> parameters, JCBlock equalsBody) {
         return TreeMaker.instance(context()).MethodDef(
                 TreeMaker.instance(context()).Modifiers(modifier),
                 Names.instance(context()).fromString(name),
@@ -201,54 +216,54 @@ public class CebollaStereotypesPlugin implements Plugin {
         );
     }
 
-    private static Stream<JCTree.JCVariableDecl> fieldsOf(JCTree.JCClassDecl classDeclaration) {
+    private static Stream<JCVariableDecl> fieldsOf(JCClassDecl classDeclaration) {
         return classDeclaration.getMembers().stream()
-                .filter((member) -> member instanceof JCTree.JCVariableDecl)
-                .map((member) -> (JCTree.JCVariableDecl) member);
+                .filter((member) -> member instanceof JCVariableDecl)
+                .map((member) -> (JCVariableDecl) member);
     }
 
-    private static JCTree.JCVariableDecl parameter(JCTree.JCClassDecl classDeclaration, String parameterName, Type parameterType) {
+    private static JCVariableDecl parameter(JCClassDecl classDeclaration, String parameterName, Type parameterType) {
         return TreeMaker.instance(context()).at(classDeclaration.pos).Param(Names.instance(context()).fromString(parameterName), parameterType, null);
     }
 
-    private static JCTree.JCBlock block(List<JCTree.JCStatement> statements) {
+    private static JCBlock block(List<JCStatement> statements) {
         return TreeMaker.instance(context()).Block(0, statements);
     }
 
-    private static JCTree.JCUnary not(JCTree.JCMethodInvocation invocation) {
+    private static JCUnary not(JCMethodInvocation invocation) {
         return TreeMaker.instance(context()).Unary(NOT,
                 invocation
         );
     }
 
-    private static boolean isArray(JCTree.JCVariableDecl fieldDeclaration) {
-        return fieldDeclaration.vartype instanceof JCTree.JCArrayTypeTree;
+    private static boolean isArray(JCVariableDecl fieldDeclaration) {
+        return fieldDeclaration.vartype instanceof JCArrayTypeTree;
     }
 
-    private static JCTree.JCIdent identifier(Name name) {
+    private static JCIdent identifier(Name name) {
         return TreeMaker.instance(context()).Ident(name);
     }
 
-    private static boolean isPrimitive(JCTree.JCVariableDecl fieldDeclaration) {
-        return fieldDeclaration.vartype instanceof JCTree.JCPrimitiveTypeTree;
+    private static boolean isPrimitive(JCVariableDecl fieldDeclaration) {
+        return fieldDeclaration.vartype instanceof JCPrimitiveTypeTree;
     }
 
-    private static JCTree.JCLiteral falze() {
+    private static JCLiteral falze() {
         return TreeMaker.instance(context()).Literal(FALSE);
     }
 
-    private static JCTree.JCLiteral nuull() {
+    private static JCLiteral nuull() {
         return TreeMaker.instance(context()).Literal(BOT, null);
     }
 
-    private static JCTree.JCBinary or(JCTree.JCExpression left, JCTree.JCExpression right) {
+    private static JCBinary or(JCExpression left, JCExpression right) {
         return TreeMaker.instance(context()).Binary(OR,
                 left,
                 right
         );
     }
 
-    private static JCTree.JCBinary isNotEqual(JCTree.JCExpression left, JCTree.JCExpression right) {
+    private static JCBinary isNotEqual(JCExpression left, JCExpression right) {
         return TreeMaker.instance(context()).Binary(
                 NE,
                 left,
@@ -256,26 +271,26 @@ public class CebollaStereotypesPlugin implements Plugin {
         );
     }
 
-    private static JCTree.JCMethodInvocation callTo(JCTree.JCExpression method, JCTree.JCExpression... arguments) {
+    private static JCMethodInvocation callTo(JCExpression method, JCExpression... arguments) {
         return callTo(method, from(arguments));
     }
 
-    private static JCTree.JCMethodInvocation callTo(JCTree.JCExpression method, List<JCTree.JCExpression> arguments) {
+    private static JCMethodInvocation callTo(JCExpression method, List<JCExpression> arguments) {
         return TreeMaker.instance(context()).Apply(nil(), method, arguments);
     }
 
-    private static JCTree.JCFieldAccess fieldOrMethod(String fieldOrMethod) {
+    private static JCFieldAccess fieldOrMethod(String fieldOrMethod) {
         return TreeMaker.instance(context()).Select(thiz(), Names.instance(context()).fromString(fieldOrMethod));
     }
 
-    private static JCTree.JCFieldAccess fieldOrMethod(String target, String fieldOrMethod) {
+    private static JCFieldAccess fieldOrMethod(String target, String fieldOrMethod) {
         return fieldOrMethod(target, Names.instance(context()).fromString(fieldOrMethod));
     }
 
-    private static JCTree.JCFieldAccess fieldOrMethod(String target, Name fieldOrMethod) {
+    private static JCFieldAccess fieldOrMethod(String target, Name fieldOrMethod) {
         if (target.contains(".")) {
             String[] classNameParts = target.split("\\.");
-            JCTree.JCExpression classIdentifier = identifier(classNameParts[0]);
+            JCExpression classIdentifier = identifier(classNameParts[0]);
 
             for (int i = 1; i < classNameParts.length; i++) {
                 classIdentifier = TreeMaker.instance(context()).Select(classIdentifier, Names.instance(context()).fromString(classNameParts[i]));
@@ -290,7 +305,7 @@ public class CebollaStereotypesPlugin implements Plugin {
         }
     }
 
-    private static JCTree.JCVariableDecl cast(String targetVariableName, String sourceVariableName, JCTree.JCClassDecl targetType) {
+    private static JCVariableDecl cast(String targetVariableName, String sourceVariableName, JCClassDecl targetType) {
         return TreeMaker.instance(context()).VarDef(
                 TreeMaker.instance(context()).Modifiers(0),
                 Names.instance(context()).fromString(targetVariableName),
@@ -299,7 +314,7 @@ public class CebollaStereotypesPlugin implements Plugin {
         );
     }
 
-    private static JCTree.JCIf iif(JCTree.JCExpression condition, JCTree.JCStatement body) {
+    private static JCIf iif(JCExpression condition, JCStatement body) {
         return TreeMaker.instance(context()).If(
                 condition,
                 body,
@@ -307,29 +322,29 @@ public class CebollaStereotypesPlugin implements Plugin {
         );
     }
 
-    private static JCTree.JCReturn retuurn(JCTree.JCExpression value) {
+    private static JCReturn retuurn(JCExpression value) {
         return TreeMaker.instance(context()).Return(value);
     }
 
-    private static JCTree.JCLiteral truu() {
+    private static JCLiteral truu() {
         return TreeMaker.instance(context()).Literal(TRUE);
     }
 
-    private static JCTree.JCExpression thiz() {
+    private static JCExpression thiz() {
         TreeMaker factory = TreeMaker.instance(context());
         Symtab symtab = Symtab.instance(context());
 
         return factory.This(symtab.objectType);
     }
 
-    private static JCTree.JCIdent identifier(String name) {
+    private static JCIdent identifier(String name) {
         TreeMaker factory = TreeMaker.instance(context());
         Names names = Names.instance(context());
 
         return factory.Ident(names.fromString(name));
     }
 
-    private static JCTree.JCBinary isEqual(JCTree.JCExpression left, JCTree.JCExpression right) {
+    private static JCBinary isEqual(JCExpression left, JCExpression right) {
         TreeMaker factory = TreeMaker.instance(context());
 
         return factory.Binary(EQ, left, right);
