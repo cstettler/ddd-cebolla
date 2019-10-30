@@ -130,17 +130,19 @@ class CebollaStereotypesPluginTests {
                 "public class TestValueObject {\n" +
                 "   private final int valueOne;\n" +
                 "   private final boolean valueTwo;\n" +
+                "   private final double valueThree;\n" +
                 "\n" +
-                "  public TestValueObject(int valueOne, boolean valueTwo) {\n" +
+                "  public TestValueObject(int valueOne, boolean valueTwo, double valueThree) {\n" +
                 "    this.valueOne = valueOne;\n" +
                 "    this.valueTwo = valueTwo;\n" +
+                "    this.valueThree = valueThree;\n" +
                 "  }\n" +
                 "}\n";
 
         // act + assert
         compileAndRunTest("com.github.cstettler.cebolla.test.TestValueObject", sourceCode, () -> {
-            Object instanceOne = testValueObjectWith(1, true);
-            Object instanceTwo = testValueObjectWith(1, true);
+            Object instanceOne = testValueObjectWith(1, true, 0.05);
+            Object instanceTwo = testValueObjectWith(1, true, 0.05);
 
             assertThat(instanceOne).isEqualTo(instanceTwo);
         });
@@ -170,6 +172,35 @@ class CebollaStereotypesPluginTests {
         compileAndRunTest("com.github.cstettler.cebolla.test.TestValueObject", sourceCode, () -> {
             Object instanceOne = testValueObjectWith(new String[]{"one", "two"}, new String[]{"three"});
             Object instanceTwo = testValueObjectWith(new String[]{"one", "two"}, new String[]{"three"});
+
+            assertThat(instanceOne).isEqualTo(instanceTwo);
+        });
+    }
+
+    @Test
+    void compile_valueObjectWithSameArrayAndObjectTypeState_areEqual() {
+        // arrange
+        String sourceCode = "" +
+                "package com.github.cstettler.cebolla.test\n;" +
+                "\n" +
+                "import com.github.cstettler.cebolla.stereotype.ValueObject;\n" +
+                "\n" +
+                "@ValueObject\n" +
+                "\n" +
+                "public class TestValueObject {\n" +
+                "   private final String[] valueOne;\n" +
+                "   private final String valueTwo;\n" +
+                "\n" +
+                "  public TestValueObject(String[] valueOne, String valueTwo) {\n" +
+                "    this.valueOne = valueOne;\n" +
+                "    this.valueTwo = valueTwo;\n" +
+                "  }\n" +
+                "}\n";
+
+        // act + assert
+        compileAndRunTest("com.github.cstettler.cebolla.test.TestValueObject", sourceCode, () -> {
+            Object instanceOne = testValueObjectWith(new String[]{"one", "two"}, "three");
+            Object instanceTwo = testValueObjectWith(new String[]{"one", "two"}, "three");
 
             assertThat(instanceOne).isEqualTo(instanceTwo);
         });

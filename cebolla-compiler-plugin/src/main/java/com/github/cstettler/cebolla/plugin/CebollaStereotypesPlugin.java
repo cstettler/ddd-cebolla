@@ -40,16 +40,21 @@ import static com.sun.source.util.TaskEvent.Kind.PARSE;
 import static com.sun.tools.javac.code.Flags.PUBLIC;
 import static com.sun.tools.javac.code.TypeTag.BOOLEAN;
 import static com.sun.tools.javac.code.TypeTag.BOT;
+import static com.sun.tools.javac.code.TypeTag.DOUBLE;
+import static com.sun.tools.javac.code.TypeTag.FLOAT;
 import static com.sun.tools.javac.code.TypeTag.INT;
 import static com.sun.tools.javac.tree.JCTree.Tag.EQ;
+import static com.sun.tools.javac.tree.JCTree.Tag.MUL;
 import static com.sun.tools.javac.tree.JCTree.Tag.NE;
 import static com.sun.tools.javac.tree.JCTree.Tag.NOT;
 import static com.sun.tools.javac.tree.JCTree.Tag.OR;
+import static com.sun.tools.javac.tree.JCTree.Tag.PLUS;
 import static com.sun.tools.javac.util.List.from;
 import static com.sun.tools.javac.util.List.nil;
 import static com.sun.tools.javac.util.List.of;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
+import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 
 public class CebollaStereotypesPlugin implements Plugin {
@@ -119,13 +124,35 @@ public class CebollaStereotypesPlugin implements Plugin {
                                 cast("_other", "other", classDeclaration),
                                 block(from(fieldsOf(classDeclaration).map((fieldDeclaration) -> {
                                             if (isPrimitive(fieldDeclaration)) {
-                                                return iif(
-                                                        isNotEqual(
-                                                                identifier(fieldDeclaration.name),
-                                                                fieldOrMethod("_other", fieldDeclaration.name)
-                                                        ),
-                                                        retuurn(falze())
-                                                );
+                                                if (isPrimitiveOfType(fieldDeclaration, DOUBLE)) {
+                                                    return iif(
+                                                            isNotEqual(
+                                                                    callTo(
+                                                                            fieldOrMethod("Double", "compare"),
+                                                                            identifier(fieldDeclaration.name), fieldOrMethod("_other", fieldDeclaration.name)
+                                                                    ), literal(0)
+                                                            ),
+                                                            retuurn(falze())
+                                                    );
+                                                } else if (isPrimitiveOfType(fieldDeclaration, FLOAT)) {
+                                                    return iif(
+                                                            isNotEqual(
+                                                                    callTo(
+                                                                            fieldOrMethod("Float", "compare"),
+                                                                            identifier(fieldDeclaration.name), fieldOrMethod("_other", fieldDeclaration.name)
+                                                                    ), literal(0)
+                                                            ),
+                                                            retuurn(falze())
+                                                    );
+                                                } else {
+                                                    return iif(
+                                                            isNotEqual(
+                                                                    identifier(fieldDeclaration.name),
+                                                                    fieldOrMethod("_other", fieldDeclaration.name)
+                                                            ),
+                                                            retuurn(falze())
+                                                    );
+                                                }
                                             } else if (isArray(fieldDeclaration)) {
                                                 return iif(
                                                         not(
@@ -157,19 +184,41 @@ public class CebollaStereotypesPlugin implements Plugin {
                                 PUBLIC,
                                 BOOLEAN,
                                 "equals",
-                                of(parameter(classDeclaration, "other", Symtab.instance(context()).objectType)),
+                                of(parameter(classDeclaration, "other", objectType())),
                                 equalsBody
                         ));
                     }
 
                     private void addHashCode(JCClassDecl classDeclaration) {
                         JCBlock hashCodeBody = block(of(
-                                retuurn(
+                                variable(intType(),
+                                        "result",
                                         callTo(
                                                 fieldOrMethod("java.util.Objects", "hash"),
-                                                arguments(fieldsOf(classDeclaration).map((fieldDeclaration) -> identifier(fieldDeclaration.name)))
+                                                arguments(fieldsOf(classDeclaration)
+                                                        .filter((fieldDeclaration) -> !isArray(fieldDeclaration))
+                                                        .map((fieldDeclaration) -> identifier(fieldDeclaration.name))
+                                                )
                                         )
-                                )
+                                ),
+                                block(from(fieldsOf(classDeclaration)
+                                        .filter((fieldDeclaration) -> isArray(fieldDeclaration))
+                                        .map((fieldDeclaration) -> reAssignVariable(
+                                                identifier("result"),
+                                                add(
+                                                        multiply(
+                                                                literal(31),
+                                                                identifier("result")
+                                                        ),
+                                                        callTo(
+                                                                fieldOrMethod("java.util.Arrays", "hashCode"),
+                                                                arguments(identifier(fieldDeclaration.name))
+                                                        )
+                                                )
+                                        ))
+                                        .collect(toList())
+                                )),
+                                retuurn(identifier("result"))
                         ));
 
                         addMethod(classDeclaration, method(
@@ -201,6 +250,10 @@ public class CebollaStereotypesPlugin implements Plugin {
 
     private static List<JCExpression> arguments(Stream<JCExpression> stream) {
         return from(stream.collect(toList()));
+    }
+
+    private static List<JCExpression> arguments(JCExpression... expressions) {
+        return from(asList(expressions));
     }
 
     private static JCMethodDecl method(int modifier, TypeTag returnType, String name, List<JCVariableDecl> parameters, JCBlock equalsBody) {
@@ -240,12 +293,18 @@ public class CebollaStereotypesPlugin implements Plugin {
         return fieldDeclaration.vartype instanceof JCArrayTypeTree;
     }
 
-    private static JCIdent identifier(Name name) {
+    private static JCExpression identifier(Name name) {
         return TreeMaker.instance(context()).Ident(name);
     }
 
     private static boolean isPrimitive(JCVariableDecl fieldDeclaration) {
         return fieldDeclaration.vartype instanceof JCPrimitiveTypeTree;
+    }
+
+    private static boolean isPrimitiveOfType(JCVariableDecl fieldDeclaration, TypeTag typeTag) {
+        return isPrimitive(fieldDeclaration)
+                && fieldDeclaration.vartype instanceof JCPrimitiveTypeTree
+                && ((JCPrimitiveTypeTree) fieldDeclaration.vartype).typetag == typeTag;
     }
 
     private static JCLiteral falze() {
@@ -257,18 +316,23 @@ public class CebollaStereotypesPlugin implements Plugin {
     }
 
     private static JCBinary or(JCExpression left, JCExpression right) {
-        return TreeMaker.instance(context()).Binary(OR,
-                left,
-                right
-        );
+        return TreeMaker.instance(context()).Binary(OR, left, right);
     }
 
     private static JCBinary isNotEqual(JCExpression left, JCExpression right) {
-        return TreeMaker.instance(context()).Binary(
-                NE,
-                left,
-                right
-        );
+        return TreeMaker.instance(context()).Binary(NE, left, right);
+    }
+
+    private static JCBinary add(JCExpression left, JCExpression right) {
+        return TreeMaker.instance(context()).Binary(PLUS, left, right);
+    }
+
+    private static JCBinary multiply(JCExpression left, JCExpression right) {
+        return TreeMaker.instance(context()).Binary(MUL, left, right);
+    }
+
+    private static JCStatement reAssignVariable(JCIdent variable, JCBinary expression) {
+        return TreeMaker.instance(context()).Exec(TreeMaker.instance(context()).Assign(variable, expression));
     }
 
     private static JCMethodInvocation callTo(JCExpression method, JCExpression... arguments) {
@@ -306,11 +370,23 @@ public class CebollaStereotypesPlugin implements Plugin {
     }
 
     private static JCVariableDecl cast(String targetVariableName, String sourceVariableName, JCClassDecl targetType) {
+        return variable(
+                identifier(targetType.name),
+                targetVariableName,
+                TreeMaker.instance(context()).TypeCast(identifier(targetType.name), identifier(sourceVariableName))
+        );
+    }
+
+    private static JCVariableDecl variable(Type type, String name, JCExpression initialization) {
+        return variable(TreeMaker.instance(context()).Type(type), name, initialization);
+    }
+
+    private static JCVariableDecl variable(JCExpression type, String name, JCExpression initialization) {
         return TreeMaker.instance(context()).VarDef(
                 TreeMaker.instance(context()).Modifiers(0),
-                Names.instance(context()).fromString(targetVariableName),
-                identifier(targetType.name),
-                TreeMaker.instance(context()).TypeCast(identifier(targetType.name), identifier(sourceVariableName))
+                Names.instance(context()).fromString(name),
+                type,
+                initialization
         );
     }
 
@@ -331,10 +407,7 @@ public class CebollaStereotypesPlugin implements Plugin {
     }
 
     private static JCExpression thiz() {
-        TreeMaker factory = TreeMaker.instance(context());
-        Symtab symtab = Symtab.instance(context());
-
-        return factory.This(symtab.objectType);
+        return TreeMaker.instance(context()).This(objectType());
     }
 
     private static JCIdent identifier(String name) {
@@ -344,10 +417,23 @@ public class CebollaStereotypesPlugin implements Plugin {
         return factory.Ident(names.fromString(name));
     }
 
+
+    private static JCLiteral literal(Object literal) {
+        return TreeMaker.instance(context()).Literal(literal);
+    }
+
     private static JCBinary isEqual(JCExpression left, JCExpression right) {
         TreeMaker factory = TreeMaker.instance(context());
 
         return factory.Binary(EQ, left, right);
+    }
+
+    private static Type objectType() {
+        return Symtab.instance(context()).objectType;
+    }
+
+    private static Type intType() {
+        return Symtab.instance(context()).intType;
     }
 
     private static Context context() {
