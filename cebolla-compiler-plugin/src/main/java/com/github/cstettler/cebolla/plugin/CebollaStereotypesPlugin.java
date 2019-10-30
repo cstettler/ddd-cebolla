@@ -8,6 +8,7 @@ import com.sun.source.util.TaskEvent;
 import com.sun.source.util.TaskListener;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.api.BasicJavacTask;
+import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTag;
@@ -37,6 +38,7 @@ import java.lang.annotation.Annotation;
 import java.util.stream.Stream;
 
 import static com.sun.source.util.TaskEvent.Kind.PARSE;
+import static com.sun.tools.javac.code.Flags.FINAL;
 import static com.sun.tools.javac.code.Flags.PUBLIC;
 import static com.sun.tools.javac.code.TypeTag.BOOLEAN;
 import static com.sun.tools.javac.code.TypeTag.BOT;
@@ -121,7 +123,7 @@ public class CebollaStereotypesPlugin implements Plugin {
                                         )),
                                         retuurn(falze())
                                 ),
-                                cast("_other", "other", classDeclaration),
+                                cast(true, "_other", "other", classDeclaration),
                                 block(from(fieldsOf(classDeclaration).map((fieldDeclaration) -> {
                                             if (isPrimitive(fieldDeclaration)) {
                                                 if (isPrimitiveOfType(fieldDeclaration, DOUBLE)) {
@@ -191,7 +193,8 @@ public class CebollaStereotypesPlugin implements Plugin {
 
                     private void addHashCode(JCClassDecl classDeclaration) {
                         JCBlock hashCodeBody = block(of(
-                                variable(intType(),
+                                variable(false,
+                                        intType(),
                                         "result",
                                         callTo(
                                                 fieldOrMethod("java.util.Objects", "hash"),
@@ -283,10 +286,8 @@ public class CebollaStereotypesPlugin implements Plugin {
         return TreeMaker.instance(context()).Block(0, statements);
     }
 
-    private static JCUnary not(JCMethodInvocation invocation) {
-        return TreeMaker.instance(context()).Unary(NOT,
-                invocation
-        );
+    private static JCUnary not(JCExpression expression) {
+        return TreeMaker.instance(context()).Unary(NOT, expression);
     }
 
     private static boolean isArray(JCVariableDecl fieldDeclaration) {
@@ -369,21 +370,22 @@ public class CebollaStereotypesPlugin implements Plugin {
         }
     }
 
-    private static JCVariableDecl cast(String targetVariableName, String sourceVariableName, JCClassDecl targetType) {
+    private static JCVariableDecl cast(boolean makeFinal, String targetVariableName, String sourceVariableName, JCClassDecl targetType) {
         return variable(
+                makeFinal,
                 identifier(targetType.name),
                 targetVariableName,
                 TreeMaker.instance(context()).TypeCast(identifier(targetType.name), identifier(sourceVariableName))
         );
     }
 
-    private static JCVariableDecl variable(Type type, String name, JCExpression initialization) {
-        return variable(TreeMaker.instance(context()).Type(type), name, initialization);
+    private static JCVariableDecl variable(boolean makeFinal, Type type, String name, JCExpression initialization) {
+        return variable(makeFinal, TreeMaker.instance(context()).Type(type), name, initialization);
     }
 
-    private static JCVariableDecl variable(JCExpression type, String name, JCExpression initialization) {
+    private static JCVariableDecl variable(boolean makeFinal, JCExpression type, String name, JCExpression initialization) {
         return TreeMaker.instance(context()).VarDef(
-                TreeMaker.instance(context()).Modifiers(0),
+                TreeMaker.instance(context()).Modifiers(makeFinal ? FINAL : 0),
                 Names.instance(context()).fromString(name),
                 type,
                 initialization
