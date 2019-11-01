@@ -48,7 +48,7 @@ import static java.util.stream.Collectors.toList;
 class ValueObjectStereotypeHandler implements StereotypeHandler {
 
     @Override
-    public void handleClass(Context context, JCClassDecl classDeclaration) {
+    public void handle(Context context, JCClassDecl classDeclaration) {
         with(context, () -> {
             addEqualsMethod(classDeclaration);
             addHashCodeMethod(classDeclaration);

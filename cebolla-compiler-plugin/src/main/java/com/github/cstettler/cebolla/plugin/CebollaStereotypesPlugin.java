@@ -12,6 +12,8 @@ import com.sun.tools.javac.tree.JCTree.JCClassDecl;
 import com.sun.tools.javac.util.Context;
 
 import java.lang.annotation.Annotation;
+import java.util.HashMap;
+import java.util.Map;
 
 import static com.sun.source.util.TaskEvent.Kind.PARSE;
 
@@ -24,8 +26,6 @@ public class CebollaStereotypesPlugin implements Plugin {
 
     @Override
     public void init(JavacTask task, String... args) {
-        Context context = ((BasicJavacTask) task).getContext();
-
         task.addTaskListener(new TaskListener() {
             @Override
             public void started(TaskEvent e) {
@@ -38,7 +38,12 @@ public class CebollaStereotypesPlugin implements Plugin {
                     return;
                 }
 
-                e.getCompilationUnit().accept(new StereotypeScanner(context), null);
+                Context context = ((BasicJavacTask) task).getContext();
+
+                StereotypeScanner stereotypeScanner = new StereotypeScanner(context);
+                stereotypeScanner.registerStereotypeHandler(ValueObject.class, new ValueObjectStereotypeHandler());
+
+                e.getCompilationUnit().accept(stereotypeScanner, null);
             }
         });
     }
@@ -47,9 +52,11 @@ public class CebollaStereotypesPlugin implements Plugin {
     private static class StereotypeScanner extends TreeScanner<Void, Void> {
 
         private final Context context;
+        private final Map<Class<? extends Annotation>, StereotypeHandler> stereotypeHandlerRegistry;
 
         StereotypeScanner(Context context) {
             this.context = context;
+            this.stereotypeHandlerRegistry = new HashMap<>();
         }
 
         @Override
@@ -57,7 +64,7 @@ public class CebollaStereotypesPlugin implements Plugin {
             JCClassDecl classDeclaration = (JCClassDecl) classTree;
 
             if (isAnnotatedBy(classTree, ValueObject.class)) {
-                new ValueObjectStereotypeHandler().handleClass(context, classDeclaration);
+                this.stereotypeHandlerRegistry.get(ValueObject.class).handle(context, classDeclaration);
             }
 
             return super.visitClass(classTree, data);
@@ -68,6 +75,11 @@ public class CebollaStereotypesPlugin implements Plugin {
             return classTree.getModifiers().getAnnotations().stream()
                     .anyMatch((annotation) -> annotation.getAnnotationType().toString().equals(annotationType.getSimpleName()));
         }
+
+        void registerStereotypeHandler(Class<? extends Annotation> stereotype, StereotypeHandler stereotypeHandler) {
+            this.stereotypeHandlerRegistry.put(stereotype, stereotypeHandler);
+        }
+
     }
 
 }

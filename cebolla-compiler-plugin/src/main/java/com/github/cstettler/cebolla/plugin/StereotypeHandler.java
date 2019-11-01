@@ -5,6 +5,6 @@ import com.sun.tools.javac.util.Context;
 
 interface StereotypeHandler {
 
-    void handleClass(Context context, JCClassDecl classDeclaration);
+    void handle(Context context, JCClassDecl classDeclaration);
 
 }
