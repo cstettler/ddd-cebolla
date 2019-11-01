@@ -38,27 +38,36 @@ public class CebollaStereotypesPlugin implements Plugin {
                     return;
                 }
 
-                e.getCompilationUnit().accept(new TreeScanner<Void, Void>() {
-
-                    @Override
-                    public Void visitClass(ClassTree classTree, Void data) {
-                        if (isAnnotatedBy(classTree, ValueObject.class)) {
-                            JCClassDecl classDeclaration = (JCClassDecl) classTree;
-
-                            new ValueObjectStereotypeHandler().handleClass(context, classDeclaration);
-                        }
-
-                        return super.visitClass(classTree, data);
-                    }
-
-                    private boolean isAnnotatedBy(ClassTree classTree, Class<? extends Annotation> annotationType) {
-                        // TODO improve stereotype annotation type matching (in case of import, only simple name is returned)
-                        return classTree.getModifiers().getAnnotations().stream()
-                                .anyMatch((annotation) -> annotation.getAnnotationType().toString().equals(annotationType.getSimpleName()));
-                    }
-                }, null);
+                e.getCompilationUnit().accept(new StereotypeScanner(context), null);
             }
         });
+    }
+
+
+    private static class StereotypeScanner extends TreeScanner<Void, Void> {
+
+        private final Context context;
+
+        StereotypeScanner(Context context) {
+            this.context = context;
+        }
+
+        @Override
+        public Void visitClass(ClassTree classTree, Void data) {
+            JCClassDecl classDeclaration = (JCClassDecl) classTree;
+
+            if (isAnnotatedBy(classTree, ValueObject.class)) {
+                new ValueObjectStereotypeHandler().handleClass(context, classDeclaration);
+            }
+
+            return super.visitClass(classTree, data);
+        }
+
+        private static boolean isAnnotatedBy(ClassTree classTree, Class<? extends Annotation> annotationType) {
+            // TODO improve stereotype annotation type matching (in case of import, only simple name is returned)
+            return classTree.getModifiers().getAnnotations().stream()
+                    .anyMatch((annotation) -> annotation.getAnnotationType().toString().equals(annotationType.getSimpleName()));
+        }
     }
 
 }
