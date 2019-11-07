@@ -1,4 +1,4 @@
-# TODO
+# TODO for Compiler Plugin
 
 * [ ] add support for jdk 11
 * [ ] add support for configuring stereotype class names
