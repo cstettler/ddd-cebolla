@@ -1,31 +1,19 @@
 package com.github.cstettler.cebolla.plugin;
 
+import com.google.common.collect.ImmutableList;
+import com.google.testing.compile.Compilation;
+import com.google.testing.compile.JavaFileObjects;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
-import javax.tools.FileObject;
-import javax.tools.ForwardingJavaFileManager;
-import javax.tools.JavaCompiler;
-import javax.tools.JavaCompiler.CompilationTask;
-import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
-import javax.tools.SimpleJavaFileObject;
-import javax.tools.ToolProvider;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintWriter;
-import java.net.URI;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.InputStream;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 
-import static java.util.Arrays.asList;
-import static java.util.Collections.singletonList;
-import static javax.tools.JavaFileObject.Kind.CLASS;
-import static javax.tools.JavaFileObject.Kind.SOURCE;
+import static com.google.testing.compile.Compilation.Status.FAILURE;
+import static com.google.testing.compile.Compiler.javac;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class CebollaStereotypesPluginTests {
@@ -214,24 +202,12 @@ class CebollaStereotypesPluginTests {
     }
 
     private static void compileAndRunTest(String className, String sourceCode, Executable test) {
-        JavaCompiler javaCompiler = ToolProvider.getSystemJavaCompiler();
+        Compilation compilation = javac()
+                .withOptions("-Xplugin:CebollaStereotype")
+                .compile(JavaFileObjects.forSourceString(className, sourceCode));
 
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PrintWriter writer = new PrintWriter(out);
-        List<String> options = asList(
-                "-classpath", System.getProperty("java.class.path"),
-                "-Xplugin:CebollaStereotype"
-        );
-
-        ClassFileRepository classFileRepository = new ClassFileRepository();
-        TestFileManager fileManager = new TestFileManager(classFileRepository);
-        StringBasedSourceFile sourceFile = new StringBasedSourceFile(className, sourceCode);
-
-        CompilationTask compilationTask = javaCompiler.getTask(writer, fileManager, null, options, null, singletonList(sourceFile));
-        Boolean success = compilationTask.call();
-
-        if (!success) {
-            throw new IllegalStateException("compilation of source code failed: " + out.toString());
+        if (compilation.status() == FAILURE) {
+            throw new IllegalStateException("compilation of source code failed: " + compilation.errors());
         }
 
         AtomicReference<Throwable> throwableReference = new AtomicReference<>();
@@ -244,7 +220,8 @@ class CebollaStereotypesPluginTests {
                     throwableReference.set(t);
                 }
             });
-            thread.setContextClassLoader(classFileRepository.createClassLoader(CebollaStereotypesPlugin.class.getClassLoader()));
+            ClassLoader parent = CebollaStereotypesPluginTests.class.getClassLoader();
+            thread.setContextClassLoader(classLoaderFor(compilation.generatedFiles(), parent));
             thread.start();
             thread.join();
         } catch (InterruptedException e) {
@@ -263,106 +240,40 @@ class CebollaStereotypesPluginTests {
         }
     }
 
-    private static class TestFileManager extends ForwardingJavaFileManager<JavaFileManager> {
+    private static ClassLoader classLoaderFor(ImmutableList<JavaFileObject> generatedFiles, ClassLoader parent) {
+        return new ClassLoader(parent) {
+            @Override
+            protected Class<?> findClass(String className) throws ClassNotFoundException {
+                try {
+                    return super.findClass(className);
+                } catch (ClassNotFoundException e) {
+                    byte[] classFileData = generatedFiles.stream()
+                            .filter((generatedFile) -> generatedFile.getName().endsWith(className.replaceAll("\\.", "/") + ".class"))
+                            .map((generatedFile) -> readBytes(generatedFile))
+                            .findFirst()
+                            .orElseThrow(() -> e);
 
-        private final ClassFileRepository classFileRepository;
-
-        TestFileManager(ClassFileRepository classFileRepository) {
-            super(ToolProvider.getSystemJavaCompiler().getStandardFileManager(null, null, null));
-
-            this.classFileRepository = classFileRepository;
-        }
-
-        @Override
-        public JavaFileObject getJavaFileForOutput(Location location, String className, JavaFileObject.Kind kind, FileObject sibling) {
-            return new ByteArrayClassFile(className, (classFileData) -> this.classFileRepository.register(className, classFileData));
-        }
-
+                    return defineClass(className, classFileData, 0, classFileData.length);
+                }
+            }
+        };
     }
 
-    private static class ClassFileRepository {
+    private static byte[] readBytes(JavaFileObject javaFileObject) {
+        try {
+            InputStream in = javaFileObject.openInputStream();
 
-        private final Map<String, byte[]> classFileDataByClassName;
+            ByteArrayOutputStream result = new ByteArrayOutputStream();
+            byte[] buffer = new byte[1024];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                result.write(buffer, 0, read);
+            }
 
-        private ClassFileRepository() {
-            this.classFileDataByClassName = new HashMap<>();
+            return result.toByteArray();
+        } catch (IOException e) {
+            throw new IllegalStateException("unable to read bytes from class file '" + javaFileObject + "'", e);
         }
-
-        void register(String className, byte[] classFileData) {
-            this.classFileDataByClassName.put(className, classFileData);
-        }
-
-        ClassLoader createClassLoader(ClassLoader parent) {
-            return new ClassLoader(parent) {
-                @Override
-                public Class<?> loadClass(String name) throws ClassNotFoundException {
-                    return super.loadClass(name);
-                }
-
-                @Override
-                protected Class<?> findClass(String className) throws ClassNotFoundException {
-                    try {
-                        return super.findClass(className);
-                    } catch (ClassNotFoundException e) {
-                        byte[] classFileData = classFileDataByClassName.get(className);
-
-                        if (classFileData != null) {
-                            return defineClass(className, classFileData, 0, classFileData.length);
-                        }
-
-                        throw e;
-                    }
-                }
-            };
-        }
-
-    }
-
-
-    private static class StringBasedSourceFile extends SimpleJavaFileObject {
-
-        private final String sourceCode;
-
-        StringBasedSourceFile(String className, String sourceCode) {
-            super(URI.create("code://" + className.replaceAll("\\.", "/") + ".java"), SOURCE);
-
-            this.sourceCode = sourceCode;
-        }
-
-        @Override
-        public CharSequence getCharContent(boolean ignoreEncodingErrors) {
-            return this.sourceCode;
-        }
-
-    }
-
-
-    private static class ByteArrayClassFile extends SimpleJavaFileObject {
-
-        private final Consumer<byte[]> classFileDataConsumer;
-
-        ByteArrayClassFile(String className, Consumer<byte[]> classFileDataConsumer) {
-            super(URI.create("code://" + className.replaceAll("\\.", "/") + ".class"), CLASS);
-
-            this.classFileDataConsumer = classFileDataConsumer;
-        }
-
-        @Override
-        public OutputStream openOutputStream() {
-            return new ByteArrayOutputStream() {
-                @Override
-                public void close() throws IOException {
-                    super.close();
-
-                    onClose(toByteArray());
-                }
-            };
-        }
-
-        private void onClose(byte[] classFileData) {
-            this.classFileDataConsumer.accept(classFileData);
-        }
-
     }
 
 }
