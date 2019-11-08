@@ -14,9 +14,15 @@ import java.lang.annotation.Annotation;
 import java.util.stream.Stream;
 
 import static com.sun.tools.javac.code.Flags.FINAL;
+import static com.sun.tools.javac.code.TypeTag.BOOLEAN;
 import static com.sun.tools.javac.code.TypeTag.BOT;
+import static com.sun.tools.javac.code.TypeTag.BYTE;
+import static com.sun.tools.javac.code.TypeTag.CHAR;
 import static com.sun.tools.javac.code.TypeTag.DOUBLE;
 import static com.sun.tools.javac.code.TypeTag.FLOAT;
+import static com.sun.tools.javac.code.TypeTag.INT;
+import static com.sun.tools.javac.code.TypeTag.LONG;
+import static com.sun.tools.javac.code.TypeTag.SHORT;
 import static com.sun.tools.javac.tree.JCTree.JCArrayTypeTree;
 import static com.sun.tools.javac.tree.JCTree.JCBinary;
 import static com.sun.tools.javac.tree.JCTree.JCBlock;
@@ -76,15 +82,19 @@ class AstUtils {
         return from(asList(expressions));
     }
 
-    static JCMethodDecl method(int modifier, TypeTag returnType, String name, List<JCVariableDecl> parameters, JCBlock equalsBody) {
+    static JCMethodDecl constructor(int modifier, List<JCVariableDecl> parameters, JCBlock body) {
+        return method(modifier, null, "<init>", parameters, body);
+    }
+
+    static JCMethodDecl method(int modifier, TypeTag returnType, String name, List<JCVariableDecl> parameters, JCBlock body) {
         return factory().MethodDef(
                 factory().Modifiers(modifier),
                 names().fromString(name),
-                factory().TypeIdent(returnType),
+                returnType != null ? factory().TypeIdent(returnType) : null,
                 nil(),
                 parameters,
                 nil(),
-                equalsBody,
+                body,
                 null
         );
     }
@@ -137,6 +147,28 @@ class AstUtils {
         return factory().Literal(BOT, null);
     }
 
+    static JCExpression nullValueFor(JCExpression propertyType) {
+        if (isPrimitiveOfType(propertyType, BOOLEAN)) {
+            return falze();
+        } else if (isPrimitiveOfType(propertyType, BYTE)) {
+            return literal((byte) 0);
+        } else if (isPrimitiveOfType(propertyType, SHORT)) {
+            return literal((short) 0);
+        } else if (isPrimitiveOfType(propertyType, INT)) {
+            return literal(0);
+        } else if (isPrimitiveOfType(propertyType, LONG)) {
+            return literal((long) 0);
+        } else if (isPrimitiveOfType(propertyType, CHAR)) {
+            return literal((char) 0);
+        } else if (isPrimitiveOfType(propertyType, FLOAT)) {
+            return literal((float) 0);
+        } else if (isPrimitiveOfType(propertyType, DOUBLE)) {
+            return literal((double) 0);
+        } else {
+            return nuull();
+        }
+    }
+
     static JCBinary or(JCExpression left, JCExpression right) {
         return factory().Binary(OR, left, right);
     }
@@ -153,7 +185,7 @@ class AstUtils {
         return factory().Binary(MUL, left, right);
     }
 
-    static JCStatement reAssignVariable(JCIdent variable, JCBinary expression) {
+    static JCStatement reAssignVariable(JCExpression variable, JCExpression expression) {
         return factory().Exec(factory().Assign(variable, expression));
     }
 

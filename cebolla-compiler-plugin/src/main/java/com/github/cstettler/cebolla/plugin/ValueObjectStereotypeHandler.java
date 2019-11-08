@@ -11,6 +11,7 @@ import static com.github.cstettler.cebolla.plugin.AstUtils.arguments;
 import static com.github.cstettler.cebolla.plugin.AstUtils.block;
 import static com.github.cstettler.cebolla.plugin.AstUtils.callTo;
 import static com.github.cstettler.cebolla.plugin.AstUtils.cast;
+import static com.github.cstettler.cebolla.plugin.AstUtils.constructor;
 import static com.github.cstettler.cebolla.plugin.AstUtils.falze;
 import static com.github.cstettler.cebolla.plugin.AstUtils.fieldOrMethod;
 import static com.github.cstettler.cebolla.plugin.AstUtils.fieldsOf;
@@ -24,6 +25,7 @@ import static com.github.cstettler.cebolla.plugin.AstUtils.literal;
 import static com.github.cstettler.cebolla.plugin.AstUtils.method;
 import static com.github.cstettler.cebolla.plugin.AstUtils.multiply;
 import static com.github.cstettler.cebolla.plugin.AstUtils.not;
+import static com.github.cstettler.cebolla.plugin.AstUtils.nullValueFor;
 import static com.github.cstettler.cebolla.plugin.AstUtils.nuull;
 import static com.github.cstettler.cebolla.plugin.AstUtils.objectType;
 import static com.github.cstettler.cebolla.plugin.AstUtils.or;
@@ -48,9 +50,21 @@ class ValueObjectStereotypeHandler implements StereotypeHandler {
     @Override
     public void handle(Context context, JCClassDecl classDeclaration) throws CebollaStereotypePluginException {
         with(context, () -> {
+            addDefaultConstructor(classDeclaration);
             addEqualsMethod(classDeclaration);
             addHashCodeMethod(classDeclaration);
         });
+    }
+
+    private static void addDefaultConstructor(JCClassDecl classDeclaration) {
+        addMethod(classDeclaration, constructor(
+                PUBLIC,
+                nil(),
+                block(from(fieldsOf(classDeclaration)
+                        .map((fieldDeclaration) -> reAssignVariable(fieldOrMethod(thiz(), fieldDeclaration.name), nullValueFor(fieldDeclaration.vartype)))
+                        .collect(toList())
+                ))
+        ));
     }
 
     private static void addEqualsMethod(JCClassDecl classDeclaration) {
