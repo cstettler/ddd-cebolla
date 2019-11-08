@@ -10,6 +10,9 @@ Domain-Driven Design and following the Onion Architecture approach. The utilitie
 technology-independent as possible, imposing as little code dependency to ddd-cebolla as possible on the project 
 application core code.
 
+## Requirements
+
+This project requires Java 11 or higher.
 
 
 ## Utilities
