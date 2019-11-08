@@ -129,4 +129,33 @@ class ValueObjectCompilationTests {
         assertThat(compilation).succeededWithoutWarnings();
     }
 
+    @Test
+    void compile_valueObjectWithExistingDefaultConstructor_succeeds() {
+        // arrange
+        JavaFileObject sourceFile = forSourceLines("com.github.cstettler.cebolla.test.TestValueObject",
+                "package com.github.cstettler.cebolla.test;",
+                "",
+                "import com.github.cstettler.cebolla.stereotype.ValueObject;",
+                "",
+                "@ValueObject",
+                "public class TestValueObject {",
+                "   private final String value;",
+                "",
+                "  public TestValueObject() {",
+                "    this.value = null;",
+                "  }",
+                "",
+                "  public TestValueObject(String value) {",
+                "    this.value = value;",
+                "  }",
+                "}"
+        );
+
+        // act
+        Compilation compilation = compile(sourceFile);
+
+        // assert
+        assertThat(compilation).succeededWithoutWarnings();
+    }
+
 }

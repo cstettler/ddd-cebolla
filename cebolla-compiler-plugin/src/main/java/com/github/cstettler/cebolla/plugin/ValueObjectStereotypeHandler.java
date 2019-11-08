@@ -23,6 +23,7 @@ import static com.github.cstettler.cebolla.plugin.AstUtils.isEqual;
 import static com.github.cstettler.cebolla.plugin.AstUtils.isNotEqual;
 import static com.github.cstettler.cebolla.plugin.AstUtils.literal;
 import static com.github.cstettler.cebolla.plugin.AstUtils.method;
+import static com.github.cstettler.cebolla.plugin.AstUtils.methodsOf;
 import static com.github.cstettler.cebolla.plugin.AstUtils.multiply;
 import static com.github.cstettler.cebolla.plugin.AstUtils.not;
 import static com.github.cstettler.cebolla.plugin.AstUtils.nullValueFor;
@@ -50,10 +51,18 @@ class ValueObjectStereotypeHandler implements StereotypeHandler {
     @Override
     public void handle(Context context, JCClassDecl classDeclaration) throws CebollaStereotypePluginException {
         with(context, () -> {
-            addDefaultConstructor(classDeclaration);
+            if (hasNoDefaultConstructor(classDeclaration)) {
+                addDefaultConstructor(classDeclaration);
+            }
             addEqualsMethod(classDeclaration);
             addHashCodeMethod(classDeclaration);
         });
+    }
+
+    private static boolean hasNoDefaultConstructor(JCClassDecl classDeclaration) {
+        return methodsOf(classDeclaration)
+                .filter((member) -> member.name.toString().equals("<init>"))
+                .noneMatch((member) -> member.params.size() == 0);
     }
 
     private static void addDefaultConstructor(JCClassDecl classDeclaration) {
