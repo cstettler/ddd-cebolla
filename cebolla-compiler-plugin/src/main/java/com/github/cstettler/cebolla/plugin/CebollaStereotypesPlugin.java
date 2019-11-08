@@ -9,7 +9,6 @@ import com.sun.source.util.TaskEvent;
 import com.sun.source.util.TaskListener;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.api.BasicJavacTask;
-import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.JavacMessages;
@@ -51,11 +50,10 @@ public class CebollaStereotypesPlugin implements Plugin {
 
                 Context context = ((BasicJavacTask) task).getContext();
 
-                JavacProcessingEnvironment javacProcessingEnvironment = context.get(JavacProcessingEnvironment.class);
-                JavacMessages javacMessages = context.get(JavacMessages.messagesKey);
+                JavacMessages javacMessages = JavacMessages.instance(context);
                 javacMessages.add((locale) -> ResourceBundle.getBundle(CebollaStereotypesPluginMessages.class.getName(), locale));
 
-                Log log = javacProcessingEnvironment.getContext().get(Log.logKey);
+                Log log = Log.instance(context);
 
                 StereotypeScanner stereotypeScanner = new StereotypeScanner(context, log);
                 stereotypeScanner.registerStereotypeHandler(ValueObject.class, new ValueObjectStereotypeHandler());
