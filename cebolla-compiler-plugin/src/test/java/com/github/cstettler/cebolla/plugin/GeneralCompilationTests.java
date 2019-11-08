@@ -12,6 +12,20 @@ import static com.google.testing.compile.JavaFileObjects.forSourceLines;
 class GeneralCompilationTests {
 
     @Test
+    void compile_illegalSourceCode_fails() {
+        // arrange
+        JavaFileObject sourceFile = forSourceLines("com.github.cstettler.cebolla.test.TestClass",
+                "illegal code"
+        );
+
+        // act
+        Compilation compilation = compile(sourceFile);
+
+        // assert
+        assertThat(compilation).failed();
+    }
+
+    @Test
     void compile_classWithMultipleStereotypes_fails() {
         // arrange
         JavaFileObject sourceFile = forSourceLines("com.github.cstettler.cebolla.test.TestClass",
