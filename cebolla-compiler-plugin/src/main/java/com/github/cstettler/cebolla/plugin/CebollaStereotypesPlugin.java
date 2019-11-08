@@ -56,8 +56,8 @@ public class CebollaStereotypesPlugin implements Plugin {
                 Log log = Log.instance(context);
 
                 StereotypeScanner stereotypeScanner = new StereotypeScanner(context, log);
-                stereotypeScanner.registerStereotypeHandler(ValueObject.class, new ValueObjectStereotypeHandler());
                 stereotypeScanner.registerStereotypeHandler(Aggregate.class, new AggregateStereotypeHandler());
+                stereotypeScanner.registerStereotypeHandler(ValueObject.class, new ValueObjectStereotypeHandler());
 
                 e.getCompilationUnit().accept(stereotypeScanner, null);
             }
