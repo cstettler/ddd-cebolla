@@ -1,5 +1,6 @@
 package com.github.cstettler.cebolla.plugin;
 
+import com.github.cstettler.cebolla.stereotype.Aggregate;
 import com.github.cstettler.cebolla.stereotype.ValueObject;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.util.JavacTask;
@@ -20,7 +21,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
 
+import static com.github.cstettler.cebolla.plugin.AstUtils.containsAnnotation;
 import static com.sun.source.util.TaskEvent.Kind.PARSE;
+import static java.util.stream.Collectors.toList;
 
 public class CebollaStereotypesPlugin implements Plugin {
 
@@ -53,6 +56,7 @@ public class CebollaStereotypesPlugin implements Plugin {
 
                 StereotypeScanner stereotypeScanner = new StereotypeScanner(context, log);
                 stereotypeScanner.registerStereotypeHandler(ValueObject.class, new ValueObjectStereotypeHandler());
+                stereotypeScanner.registerStereotypeHandler(Aggregate.class, new AggregateStereotypeHandler());
 
                 e.getCompilationUnit().accept(stereotypeScanner, null);
             }
@@ -77,8 +81,10 @@ public class CebollaStereotypesPlugin implements Plugin {
             JCClassDecl classDeclaration = (JCClassDecl) classTree;
 
             try {
-                if (isAnnotatedBy(classTree, ValueObject.class)) {
-                    this.stereotypeHandlerRegistry.get(ValueObject.class).handle(context, classDeclaration);
+                Class<? extends Annotation> stereotype = findStereotype(classDeclaration);
+
+                if (stereotype != null) {
+                    this.stereotypeHandlerRegistry.get(stereotype).handle(context, classDeclaration);
                 }
             } catch (CebollaStereotypePluginException e) {
                 this.log.error(classDeclaration.pos, e.key(), e.parameters());
@@ -89,14 +95,24 @@ public class CebollaStereotypesPlugin implements Plugin {
             return super.visitClass(classTree, data);
         }
 
-        private static boolean isAnnotatedBy(ClassTree classTree, Class<? extends Annotation> annotationType) {
-            // TODO improve stereotype annotation type matching (in case of import, only simple name is returned)
-            return classTree.getModifiers().getAnnotations().stream()
-                    .anyMatch((annotation) -> annotation.getAnnotationType().toString().equals(annotationType.getSimpleName()));
-        }
-
         void registerStereotypeHandler(Class<? extends Annotation> stereotype, StereotypeHandler stereotypeHandler) {
             this.stereotypeHandlerRegistry.put(stereotype, stereotypeHandler);
+        }
+
+        private Class<? extends Annotation> findStereotype(JCClassDecl classDeclaration) {
+            List<Class<? extends Annotation>> foundStereotypes = this.stereotypeHandlerRegistry.keySet().stream()
+                    .filter((stereotype) -> isAnnotatedWith(classDeclaration, stereotype))
+                    .collect(toList());
+
+            if (foundStereotypes.size() > 1) {
+                throw new IllegalStateException("class '" + classDeclaration.name.toString() + "' is annotated with multiple stereotypes: " + foundStereotypes);
+            }
+
+            return foundStereotypes.size() == 1 ? foundStereotypes.get(0) : null;
+        }
+
+        private static boolean isAnnotatedWith(JCClassDecl classDeclaration, Class<? extends Annotation> stereotype) {
+            return containsAnnotation(classDeclaration.getModifiers().getAnnotations(), stereotype);
         }
 
     }

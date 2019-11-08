@@ -5,8 +5,8 @@ import org.junit.jupiter.api.Test;
 
 import javax.tools.JavaFileObject;
 
+import static com.github.cstettler.cebolla.plugin.CompileUtils.compile;
 import static com.google.testing.compile.CompilationSubject.assertThat;
-import static com.google.testing.compile.Compiler.javac;
 import static com.google.testing.compile.JavaFileObjects.forSourceLines;
 
 class ValueObjectCompilationTests {
@@ -21,12 +21,10 @@ class ValueObjectCompilationTests {
                 "",
                 "@ValueObject",
                 "public class TestValueObject {",
-                "   private final String valueOne;",
-                "   private final String valueTwo;",
+                "   private final String value;",
                 "",
-                "  public TestValueObject(String valueOne, String valueTwo) {",
-                "    this.valueOne = valueOne;",
-                "    this.valueTwo = valueTwo;",
+                "  public TestValueObject(String value) {",
+                "    this.value = value;",
                 "  }",
                 "}"
         );
@@ -119,12 +117,6 @@ class ValueObjectCompilationTests {
 
         // assert
         assertThat(compilation).succeededWithoutWarnings();
-    }
-
-    private static Compilation compile(JavaFileObject sourceFile) {
-        return javac()
-                .withOptions("-Xplugin:CebollaStereotype")
-                .compile(sourceFile);
     }
 
 }

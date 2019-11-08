@@ -3,16 +3,20 @@ package com.github.cstettler.cebolla.plugin;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTag;
+import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 
+import java.lang.annotation.Annotation;
 import java.util.stream.Stream;
 
 import static com.sun.tools.javac.code.Flags.FINAL;
 import static com.sun.tools.javac.code.TypeTag.BOT;
+import static com.sun.tools.javac.code.TypeTag.DOUBLE;
+import static com.sun.tools.javac.code.TypeTag.FLOAT;
 import static com.sun.tools.javac.tree.JCTree.JCArrayTypeTree;
 import static com.sun.tools.javac.tree.JCTree.JCBinary;
 import static com.sun.tools.javac.tree.JCTree.JCBlock;
@@ -42,6 +46,7 @@ import static java.lang.Boolean.TRUE;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 
+@SuppressWarnings("WeakerAccess")
 class AstUtils {
 
     private static final ThreadLocal<Context> CONTEXT_THREAD_LOCAL = new ThreadLocal<>();
@@ -49,7 +54,7 @@ class AstUtils {
     private AstUtils() {
     }
 
-    static void with(Context context, Runnable runnable) {
+    static void with(Context context, HandlerRunnable runnable) throws CebollaStereotypePluginException {
         try {
             CONTEXT_THREAD_LOCAL.set(context);
 
@@ -90,6 +95,12 @@ class AstUtils {
                 .map((member) -> (JCVariableDecl) member);
     }
 
+    static Stream<JCMethodDecl> methodsOf(JCClassDecl classDeclaration) {
+        return classDeclaration.getMembers().stream()
+                .filter((member) -> member instanceof JCMethodDecl)
+                .map((member) -> (JCMethodDecl) member);
+    }
+
     static JCVariableDecl parameter(JCClassDecl classDeclaration, String parameterName, Type parameterType) {
         return factory().at(classDeclaration.pos).Param(names().fromString(parameterName), parameterType, null);
     }
@@ -102,22 +113,20 @@ class AstUtils {
         return factory().Unary(NOT, expression);
     }
 
-    static boolean isArray(JCVariableDecl fieldDeclaration) {
-        return fieldDeclaration.vartype instanceof JCArrayTypeTree;
+    static boolean isArray(JCExpression propertyType) {
+        return propertyType instanceof JCArrayTypeTree;
     }
 
     static JCExpression identifier(Name name) {
         return factory().Ident(name);
     }
 
-    static boolean isPrimitive(JCVariableDecl fieldDeclaration) {
-        return fieldDeclaration.vartype instanceof JCPrimitiveTypeTree;
+    static boolean isPrimitive(JCExpression propertyType) {
+        return propertyType instanceof JCPrimitiveTypeTree;
     }
 
-    static boolean isPrimitiveOfType(JCVariableDecl fieldDeclaration, TypeTag typeTag) {
-        return isPrimitive(fieldDeclaration)
-                && fieldDeclaration.vartype instanceof JCPrimitiveTypeTree
-                && ((JCPrimitiveTypeTree) fieldDeclaration.vartype).typetag == typeTag;
+    static boolean isPrimitiveOfType(JCExpression propertyType, TypeTag typeTag) {
+        return isPrimitive(propertyType) && ((JCPrimitiveTypeTree) propertyType).typetag == typeTag;
     }
 
     static JCLiteral falze() {
@@ -156,8 +165,12 @@ class AstUtils {
         return factory().Apply(nil(), method, arguments);
     }
 
-    static JCFieldAccess fieldOrMethod(String fieldOrMethod) {
-        return factory().Select(thiz(), names().fromString(fieldOrMethod));
+    static JCFieldAccess fieldOrMethod(JCExpression target, String fieldOrMethod) {
+        return fieldOrMethod(target, names().fromString(fieldOrMethod));
+    }
+
+    static JCFieldAccess fieldOrMethod(JCExpression target, Name fieldOrMethod) {
+        return factory().Select(target, fieldOrMethod);
     }
 
     static JCFieldAccess fieldOrMethod(String target, String fieldOrMethod) {
@@ -240,6 +253,42 @@ class AstUtils {
         return symtab().intType;
     }
 
+    static JCExpression propertyEqual(JCExpression propertyType, JCExpression ownValue, JCExpression otherValue) {
+        if (isPrimitive(propertyType)) {
+            if (isPrimitiveOfType(propertyType, DOUBLE)) {
+                return isEqual(
+                        callTo(
+                                fieldOrMethod("Double", "compare"),
+                                ownValue, otherValue
+                        ), literal(0)
+                );
+            } else if (isPrimitiveOfType(propertyType, FLOAT)) {
+                return isEqual(
+                        callTo(
+                                fieldOrMethod("Float", "compare"),
+                                ownValue, otherValue
+                        ), literal(0)
+                );
+            } else {
+                return isEqual(
+                        ownValue,
+                        otherValue
+                );
+            }
+        } else if (isArray(propertyType)) {
+            return callTo(
+                    fieldOrMethod("java.util.Arrays", "equals"),
+                    ownValue, otherValue
+            );
+        } else {
+            return
+                    callTo(
+                            fieldOrMethod("java.util.Objects", "equals"),
+                            ownValue, otherValue
+                    );
+        }
+    }
+
     private static TreeMaker factory() {
         return TreeMaker.instance(context());
     }
@@ -254,6 +303,20 @@ class AstUtils {
 
     private static Context context() {
         return CONTEXT_THREAD_LOCAL.get();
+    }
+
+    static boolean containsAnnotation(java.util.List<JCTree.JCAnnotation> annotations, Class<? extends Annotation> annotationType) {
+        // TODO improve stereotype annotation type matching (in case of import, only simple name is returned)
+        return annotations.stream()
+                .anyMatch((annotation) -> annotation.getAnnotationType().toString().equals(annotationType.getSimpleName()));
+    }
+
+
+    @FunctionalInterface
+    interface HandlerRunnable {
+
+        void run() throws CebollaStereotypePluginException;
+
     }
 
 }

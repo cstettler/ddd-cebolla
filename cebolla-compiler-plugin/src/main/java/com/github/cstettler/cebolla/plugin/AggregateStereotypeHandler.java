@@ -1,49 +1,46 @@
 package com.github.cstettler.cebolla.plugin;
 
-import com.sun.tools.javac.tree.JCTree;
+import com.github.cstettler.cebolla.stereotype.AggregateId;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
+import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
 
-import static com.github.cstettler.cebolla.plugin.AstUtils.add;
+import java.lang.annotation.Annotation;
+
 import static com.github.cstettler.cebolla.plugin.AstUtils.addMethod;
 import static com.github.cstettler.cebolla.plugin.AstUtils.arguments;
 import static com.github.cstettler.cebolla.plugin.AstUtils.block;
 import static com.github.cstettler.cebolla.plugin.AstUtils.callTo;
 import static com.github.cstettler.cebolla.plugin.AstUtils.cast;
+import static com.github.cstettler.cebolla.plugin.AstUtils.containsAnnotation;
 import static com.github.cstettler.cebolla.plugin.AstUtils.falze;
 import static com.github.cstettler.cebolla.plugin.AstUtils.fieldOrMethod;
-import static com.github.cstettler.cebolla.plugin.AstUtils.fieldsOf;
 import static com.github.cstettler.cebolla.plugin.AstUtils.identifier;
 import static com.github.cstettler.cebolla.plugin.AstUtils.iif;
-import static com.github.cstettler.cebolla.plugin.AstUtils.intType;
 import static com.github.cstettler.cebolla.plugin.AstUtils.isArray;
 import static com.github.cstettler.cebolla.plugin.AstUtils.isEqual;
 import static com.github.cstettler.cebolla.plugin.AstUtils.isNotEqual;
-import static com.github.cstettler.cebolla.plugin.AstUtils.literal;
 import static com.github.cstettler.cebolla.plugin.AstUtils.method;
-import static com.github.cstettler.cebolla.plugin.AstUtils.multiply;
-import static com.github.cstettler.cebolla.plugin.AstUtils.not;
+import static com.github.cstettler.cebolla.plugin.AstUtils.methodsOf;
 import static com.github.cstettler.cebolla.plugin.AstUtils.nuull;
 import static com.github.cstettler.cebolla.plugin.AstUtils.objectType;
 import static com.github.cstettler.cebolla.plugin.AstUtils.or;
 import static com.github.cstettler.cebolla.plugin.AstUtils.parameter;
 import static com.github.cstettler.cebolla.plugin.AstUtils.propertyEqual;
-import static com.github.cstettler.cebolla.plugin.AstUtils.reAssignVariable;
 import static com.github.cstettler.cebolla.plugin.AstUtils.retuurn;
 import static com.github.cstettler.cebolla.plugin.AstUtils.thiz;
 import static com.github.cstettler.cebolla.plugin.AstUtils.truu;
-import static com.github.cstettler.cebolla.plugin.AstUtils.variable;
 import static com.github.cstettler.cebolla.plugin.AstUtils.with;
+import static com.github.cstettler.cebolla.plugin.CebollaStereotypesPluginMessages.AGGREGATE_WITHOUT_AGGREGATE_ID;
 import static com.sun.tools.javac.code.Flags.PUBLIC;
 import static com.sun.tools.javac.code.TypeTag.BOOLEAN;
 import static com.sun.tools.javac.code.TypeTag.INT;
-import static com.sun.tools.javac.util.List.from;
+import static com.sun.tools.javac.tree.JCTree.JCBlock;
 import static com.sun.tools.javac.util.List.nil;
 import static com.sun.tools.javac.util.List.of;
-import static java.util.stream.Collectors.toList;
 
-class ValueObjectStereotypeHandler implements StereotypeHandler {
+class AggregateStereotypeHandler implements StereotypeHandler {
 
     @Override
     public void handle(Context context, JCClassDecl classDeclaration) throws CebollaStereotypePluginException {
@@ -53,8 +50,10 @@ class ValueObjectStereotypeHandler implements StereotypeHandler {
         });
     }
 
-    private static void addEqualsMethod(JCClassDecl classDeclaration) {
-        JCTree.JCBlock equalsBody = block(List.of(
+    private void addEqualsMethod(JCClassDecl classDeclaration) throws CebollaStereotypePluginException {
+        JCMethodDecl aggregateIdAccessorMethod = findMethodAnnotatedWith(classDeclaration, AggregateId.class);
+
+        JCBlock equalsBody = block(List.of(
                 iif(
                         isEqual(thiz(), identifier("other")),
                         retuurn(truu())
@@ -71,18 +70,13 @@ class ValueObjectStereotypeHandler implements StereotypeHandler {
                         retuurn(falze())
                 ),
                 cast(true, "_other", "other", classDeclaration),
-                block(from(fieldsOf(classDeclaration).map((fieldDeclaration) ->
-                        iif(
-                                not(
-                                        propertyEqual(
-                                                fieldDeclaration.vartype,
-                                                identifier(fieldDeclaration.name),
-                                                fieldOrMethod("_other", fieldDeclaration.name)
-                                        )),
-                                retuurn(falze())
-                        )).collect(toList())
-                )),
-                retuurn(truu())
+                retuurn(
+                        propertyEqual(
+                                aggregateIdAccessorMethod.restype,
+                                callTo(fieldOrMethod(thiz(), aggregateIdAccessorMethod.name)),
+                                callTo(fieldOrMethod("_other", aggregateIdAccessorMethod.name))
+                        )
+                )
         ));
 
         addMethod(classDeclaration, method(
@@ -94,38 +88,30 @@ class ValueObjectStereotypeHandler implements StereotypeHandler {
         ));
     }
 
-    private static void addHashCodeMethod(JCClassDecl classDeclaration) {
-        JCTree.JCBlock hashCodeBody = block(of(
-                variable(false,
-                        intType(),
-                        "result",
-                        callTo(
-                                fieldOrMethod("java.util.Objects", "hash"),
-                                arguments(fieldsOf(classDeclaration)
-                                        .filter((fieldDeclaration) -> !isArray(fieldDeclaration.vartype))
-                                        .map((fieldDeclaration) -> identifier(fieldDeclaration.name))
-                                )
-                        )
-                ),
-                block(from(fieldsOf(classDeclaration)
-                        .filter((fieldDeclaration) -> isArray(fieldDeclaration.vartype))
-                        .map((fieldDeclaration) -> reAssignVariable(
-                                identifier("result"),
-                                add(
-                                        multiply(
-                                                literal(31),
-                                                identifier("result")
-                                        ),
-                                        callTo(
-                                                fieldOrMethod("java.util.Arrays", "hashCode"),
-                                                arguments(identifier(fieldDeclaration.name))
-                                        )
-                                )
-                        ))
-                        .collect(toList())
-                )),
-                retuurn(identifier("result"))
-        ));
+    private static void addHashCodeMethod(JCClassDecl classDeclaration) throws CebollaStereotypePluginException {
+        JCMethodDecl aggregateIdAccessorMethod = findMethodAnnotatedWith(classDeclaration, AggregateId.class);
+
+        JCBlock hashCodeBody;
+
+        if (isArray(aggregateIdAccessorMethod.restype)) {
+            hashCodeBody = block(of(
+                    retuurn(
+                            callTo(
+                                    fieldOrMethod("java.util.Arrays", "hashCode"),
+                                    arguments(callTo(fieldOrMethod(thiz(), aggregateIdAccessorMethod.name)))
+                            )
+                    )
+            ));
+        } else {
+            hashCodeBody = block(of(
+                    retuurn(
+                            callTo(
+                                    fieldOrMethod("java.util.Objects", "hash"),
+                                    arguments(callTo(fieldOrMethod(thiz(), aggregateIdAccessorMethod.name)))
+                            )
+                    )
+            ));
+        }
 
         addMethod(classDeclaration, method(
                 PUBLIC,
@@ -134,6 +120,13 @@ class ValueObjectStereotypeHandler implements StereotypeHandler {
                 nil(),
                 hashCodeBody
         ));
+    }
+
+    private static JCMethodDecl findMethodAnnotatedWith(JCClassDecl classDeclaration, Class<? extends Annotation> stereotype) throws CebollaStereotypePluginException {
+        return methodsOf(classDeclaration)
+                .filter((method) -> containsAnnotation(method.getModifiers().getAnnotations(), stereotype))
+                .findFirst()
+                .orElseThrow(() -> new CebollaStereotypePluginException(AGGREGATE_WITHOUT_AGGREGATE_ID, classDeclaration.name.toString(), AggregateId.class.getName()));
     }
 
 }
