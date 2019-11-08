@@ -24,6 +24,8 @@ Provides stereotypes used to identify and qualify corresponding elements in the 
 Currently, the following stereotypes are available:
 
 - `@ValueObject`: represents a value object
+- `@Aggregate`: represents an aggregate
+- `@AggregateId`: represents the property (method) identifying an aggregate
 
 More stereotypes will be added as required / supported.
 
@@ -37,7 +39,14 @@ application core) free of any direct dependency to ddd-cebolla.
 Provides a plugin for the Javac compiler for generating code for various stereotypes.
 
 Currently, the following features are supported:
+
+#### Code Generation
 - generate `equals()` and `hashCode()` for value objects based on its entire state
+- generate `equals()` and `hashCode()` for aggregates based on its aggregate id
+
+#### Compile Errors
+- compile error if an aggregate has no aggregate id
+- compile error if a class has multiple stereotypes
 
 More aspects will be supported soon :-)
 
