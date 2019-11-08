@@ -185,7 +185,7 @@ class AstUtils {
         return factory().Binary(MUL, left, right);
     }
 
-    static JCStatement reAssignVariable(JCExpression variable, JCExpression expression) {
+    static JCStatement assignExistingVariable(JCExpression variable, JCExpression expression) {
         return factory().Exec(factory().Assign(variable, expression));
     }
 

@@ -32,7 +32,7 @@ import static com.github.cstettler.cebolla.plugin.AstUtils.objectType;
 import static com.github.cstettler.cebolla.plugin.AstUtils.or;
 import static com.github.cstettler.cebolla.plugin.AstUtils.parameter;
 import static com.github.cstettler.cebolla.plugin.AstUtils.propertyEqual;
-import static com.github.cstettler.cebolla.plugin.AstUtils.reAssignVariable;
+import static com.github.cstettler.cebolla.plugin.AstUtils.assignExistingVariable;
 import static com.github.cstettler.cebolla.plugin.AstUtils.retuurn;
 import static com.github.cstettler.cebolla.plugin.AstUtils.thiz;
 import static com.github.cstettler.cebolla.plugin.AstUtils.truu;
@@ -70,7 +70,7 @@ class ValueObjectStereotypeHandler implements StereotypeHandler {
                 PUBLIC,
                 nil(),
                 block(from(fieldsOf(classDeclaration)
-                        .map((fieldDeclaration) -> reAssignVariable(fieldOrMethod(thiz(), fieldDeclaration.name), nullValueFor(fieldDeclaration.vartype)))
+                        .map((fieldDeclaration) -> assignExistingVariable(fieldOrMethod(thiz(), fieldDeclaration.name), nullValueFor(fieldDeclaration.vartype)))
                         .collect(toList())
                 ))
         ));
@@ -132,7 +132,7 @@ class ValueObjectStereotypeHandler implements StereotypeHandler {
                 ),
                 block(from(fieldsOf(classDeclaration)
                         .filter((fieldDeclaration) -> isArray(fieldDeclaration.vartype))
-                        .map((fieldDeclaration) -> reAssignVariable(
+                        .map((fieldDeclaration) -> assignExistingVariable(
                                 identifier("result"),
                                 add(
                                         multiply(
