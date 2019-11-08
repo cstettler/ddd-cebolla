@@ -8,12 +8,17 @@ import com.sun.source.util.TaskEvent;
 import com.sun.source.util.TaskListener;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.api.BasicJavacTask;
+import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
 import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.JavacMessages;
+import com.sun.tools.javac.util.Log;
 
 import java.lang.annotation.Annotation;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.ResourceBundle;
 
 import static com.sun.source.util.TaskEvent.Kind.PARSE;
 
@@ -40,7 +45,13 @@ public class CebollaStereotypesPlugin implements Plugin {
 
                 Context context = ((BasicJavacTask) task).getContext();
 
-                StereotypeScanner stereotypeScanner = new StereotypeScanner(context);
+                JavacProcessingEnvironment javacProcessingEnvironment = context.get(JavacProcessingEnvironment.class);
+                JavacMessages javacMessages = context.get(JavacMessages.messagesKey);
+                javacMessages.add((locale) -> ResourceBundle.getBundle(CebollaStereotypesPluginMessages.class.getName(), locale));
+
+                Log log = javacProcessingEnvironment.getContext().get(Log.logKey);
+
+                StereotypeScanner stereotypeScanner = new StereotypeScanner(context, log);
                 stereotypeScanner.registerStereotypeHandler(ValueObject.class, new ValueObjectStereotypeHandler());
 
                 e.getCompilationUnit().accept(stereotypeScanner, null);
@@ -52,10 +63,12 @@ public class CebollaStereotypesPlugin implements Plugin {
     private static class StereotypeScanner extends TreeScanner<Void, Void> {
 
         private final Context context;
+        private final Log log;
         private final Map<Class<? extends Annotation>, StereotypeHandler> stereotypeHandlerRegistry;
 
-        StereotypeScanner(Context context) {
+        StereotypeScanner(Context context, Log log) {
             this.context = context;
+            this.log = log;
             this.stereotypeHandlerRegistry = new HashMap<>();
         }
 
@@ -63,8 +76,14 @@ public class CebollaStereotypesPlugin implements Plugin {
         public Void visitClass(ClassTree classTree, Void data) {
             JCClassDecl classDeclaration = (JCClassDecl) classTree;
 
-            if (isAnnotatedBy(classTree, ValueObject.class)) {
-                this.stereotypeHandlerRegistry.get(ValueObject.class).handle(context, classDeclaration);
+            try {
+                if (isAnnotatedBy(classTree, ValueObject.class)) {
+                    this.stereotypeHandlerRegistry.get(ValueObject.class).handle(context, classDeclaration);
+                }
+            } catch (CebollaStereotypePluginException e) {
+                this.log.error(classDeclaration.pos, e.key(), e.parameters());
+            } catch (Exception e) {
+                this.log.rawError(classDeclaration.pos, e.getMessage());
             }
 
             return super.visitClass(classTree, data);
