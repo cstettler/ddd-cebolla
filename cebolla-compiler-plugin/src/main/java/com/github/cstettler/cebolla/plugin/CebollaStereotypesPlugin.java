@@ -16,13 +16,16 @@ import com.sun.tools.javac.util.JavacMessages;
 import com.sun.tools.javac.util.Log;
 
 import java.lang.annotation.Annotation;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
 
 import static com.github.cstettler.cebolla.plugin.AstUtils.containsAnnotation;
+import static com.github.cstettler.cebolla.plugin.CebollaStereotypesPluginMessages.CLASS_ANNOTATED_BY_MULTIPLE_STEREOTYPES;
 import static com.sun.source.util.TaskEvent.Kind.PARSE;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 public class CebollaStereotypesPlugin implements Plugin {
@@ -99,13 +102,13 @@ public class CebollaStereotypesPlugin implements Plugin {
             this.stereotypeHandlerRegistry.put(stereotype, stereotypeHandler);
         }
 
-        private Class<? extends Annotation> findStereotype(JCClassDecl classDeclaration) {
+        private Class<? extends Annotation> findStereotype(JCClassDecl classDeclaration) throws CebollaStereotypePluginException {
             List<Class<? extends Annotation>> foundStereotypes = this.stereotypeHandlerRegistry.keySet().stream()
                     .filter((stereotype) -> isAnnotatedWith(classDeclaration, stereotype))
                     .collect(toList());
 
             if (foundStereotypes.size() > 1) {
-                throw new IllegalStateException("class '" + classDeclaration.name.toString() + "' is annotated with multiple stereotypes: " + foundStereotypes);
+                throw new CebollaStereotypePluginException(CLASS_ANNOTATED_BY_MULTIPLE_STEREOTYPES, classDeclaration.name.toString(), toString(foundStereotypes));
             }
 
             return foundStereotypes.size() == 1 ? foundStereotypes.get(0) : null;
@@ -113,6 +116,13 @@ public class CebollaStereotypesPlugin implements Plugin {
 
         private static boolean isAnnotatedWith(JCClassDecl classDeclaration, Class<? extends Annotation> stereotype) {
             return containsAnnotation(classDeclaration.getModifiers().getAnnotations(), stereotype);
+        }
+
+        private static String toString(List<Class<? extends Annotation>> stereotypes) {
+            return stereotypes.stream()
+                    .sorted(Comparator.comparing((stereotype) -> stereotype.getName()))
+                    .map((stereotype) -> stereotype.getName())
+                    .collect(joining("', '", "['", "']"));
         }
 
     }
