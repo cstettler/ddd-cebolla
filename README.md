@@ -46,6 +46,7 @@ Currently, the following features are supported:
 #### Code Generation
 - generate `equals()` and `hashCode()` for value objects based on its entire state
 - generate `equals()` and `hashCode()` for aggregates based on its aggregate id
+- generate default constructor for value objects and aggregates
 
 #### Compile Errors
 - compile error if an aggregate has no aggregate id
