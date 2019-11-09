@@ -10,14 +10,18 @@ import java.lang.annotation.Annotation;
 
 import static com.github.cstettler.cebolla.plugin.AstUtils.addMethod;
 import static com.github.cstettler.cebolla.plugin.AstUtils.arguments;
+import static com.github.cstettler.cebolla.plugin.AstUtils.assignExistingVariable;
 import static com.github.cstettler.cebolla.plugin.AstUtils.block;
 import static com.github.cstettler.cebolla.plugin.AstUtils.callTo;
 import static com.github.cstettler.cebolla.plugin.AstUtils.cast;
+import static com.github.cstettler.cebolla.plugin.AstUtils.constructor;
 import static com.github.cstettler.cebolla.plugin.AstUtils.containsAnnotation;
 import static com.github.cstettler.cebolla.plugin.AstUtils.falze;
 import static com.github.cstettler.cebolla.plugin.AstUtils.fieldOrMethod;
+import static com.github.cstettler.cebolla.plugin.AstUtils.fieldsOf;
 import static com.github.cstettler.cebolla.plugin.AstUtils.hasNoDeclaredEqualsMethod;
 import static com.github.cstettler.cebolla.plugin.AstUtils.hasNoDeclaredHashCodeMethod;
+import static com.github.cstettler.cebolla.plugin.AstUtils.hasNoDefaultConstructor;
 import static com.github.cstettler.cebolla.plugin.AstUtils.identifier;
 import static com.github.cstettler.cebolla.plugin.AstUtils.iif;
 import static com.github.cstettler.cebolla.plugin.AstUtils.isArray;
@@ -25,6 +29,7 @@ import static com.github.cstettler.cebolla.plugin.AstUtils.isEqual;
 import static com.github.cstettler.cebolla.plugin.AstUtils.isNotEqual;
 import static com.github.cstettler.cebolla.plugin.AstUtils.method;
 import static com.github.cstettler.cebolla.plugin.AstUtils.methodsOf;
+import static com.github.cstettler.cebolla.plugin.AstUtils.nullValueFor;
 import static com.github.cstettler.cebolla.plugin.AstUtils.nuull;
 import static com.github.cstettler.cebolla.plugin.AstUtils.objectType;
 import static com.github.cstettler.cebolla.plugin.AstUtils.or;
@@ -39,14 +44,19 @@ import static com.sun.tools.javac.code.Flags.PUBLIC;
 import static com.sun.tools.javac.code.TypeTag.BOOLEAN;
 import static com.sun.tools.javac.code.TypeTag.INT;
 import static com.sun.tools.javac.tree.JCTree.JCBlock;
+import static com.sun.tools.javac.util.List.from;
 import static com.sun.tools.javac.util.List.nil;
 import static com.sun.tools.javac.util.List.of;
+import static java.util.stream.Collectors.toList;
 
 class AggregateStereotypeHandler implements StereotypeHandler {
 
     @Override
     public void handle(Context context, JCClassDecl classDeclaration) throws CebollaStereotypePluginException {
         with(context, () -> {
+            if (hasNoDefaultConstructor(classDeclaration)) {
+                addDefaultConstructor(classDeclaration);
+            }
             if (hasNoDeclaredEqualsMethod(classDeclaration)) {
                 addEqualsMethod(classDeclaration);
             }
@@ -54,6 +64,17 @@ class AggregateStereotypeHandler implements StereotypeHandler {
                 addHashCodeMethod(classDeclaration);
             }
         });
+    }
+
+    private static void addDefaultConstructor(JCClassDecl classDeclaration) {
+        addMethod(classDeclaration, constructor(
+                PUBLIC,
+                nil(),
+                block(from(fieldsOf(classDeclaration)
+                        .map((fieldDeclaration) -> assignExistingVariable(fieldOrMethod(thiz(), fieldDeclaration.name), nullValueFor(fieldDeclaration.vartype)))
+                        .collect(toList())
+                ))
+        ));
     }
 
     private void addEqualsMethod(JCClassDecl classDeclaration) throws CebollaStereotypePluginException {
