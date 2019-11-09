@@ -16,6 +16,8 @@ import static com.github.cstettler.cebolla.plugin.AstUtils.cast;
 import static com.github.cstettler.cebolla.plugin.AstUtils.containsAnnotation;
 import static com.github.cstettler.cebolla.plugin.AstUtils.falze;
 import static com.github.cstettler.cebolla.plugin.AstUtils.fieldOrMethod;
+import static com.github.cstettler.cebolla.plugin.AstUtils.hasNoDeclaredEqualsMethod;
+import static com.github.cstettler.cebolla.plugin.AstUtils.hasNoDeclaredHashCodeMethod;
 import static com.github.cstettler.cebolla.plugin.AstUtils.identifier;
 import static com.github.cstettler.cebolla.plugin.AstUtils.iif;
 import static com.github.cstettler.cebolla.plugin.AstUtils.isArray;
@@ -45,8 +47,12 @@ class AggregateStereotypeHandler implements StereotypeHandler {
     @Override
     public void handle(Context context, JCClassDecl classDeclaration) throws CebollaStereotypePluginException {
         with(context, () -> {
-            addEqualsMethod(classDeclaration);
-            addHashCodeMethod(classDeclaration);
+            if (hasNoDeclaredEqualsMethod(classDeclaration)) {
+                addEqualsMethod(classDeclaration);
+            }
+            if (hasNoDeclaredHashCodeMethod(classDeclaration)) {
+                addHashCodeMethod(classDeclaration);
+            }
         });
     }
 

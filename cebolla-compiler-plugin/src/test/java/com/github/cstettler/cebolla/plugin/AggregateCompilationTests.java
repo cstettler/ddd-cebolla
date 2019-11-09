@@ -139,4 +139,115 @@ class AggregateCompilationTests {
         assertThat(compilation).hadErrorContaining("aggregate 'TestAggregate' has no aggregate id accessor method annotated with 'com.github.cstettler.cebolla.stereotype.AggregateId'");
     }
 
+    @Test
+    void compile_aggregateWithExistingNormalEqualsMethod_succeeds() {
+        // arrange
+        JavaFileObject sourceFile = forSourceLines("com.github.cstettler.cebolla.test.TestAggregate",
+                "package com.github.cstettler.cebolla.test;",
+                "",
+                "import com.github.cstettler.cebolla.stereotype.Aggregate;",
+                "import com.github.cstettler.cebolla.stereotype.AggregateId;",
+                "",
+                "@Aggregate",
+                "public class TestAggregate {",
+                "   private final String id;",
+                "   private final String value;",
+                "",
+                "  public TestAggregate(String id, String value) {",
+                "    this.id = id;",
+                "    this.value = value;",
+                "  }",
+                "",
+                "  @AggregateId",
+                "  String id() {",
+                "    return this.id;",
+                "  }",
+                "",
+                "  public boolean equals(Object other) {",
+                "    return true;",
+                "  }",
+                "}"
+        );
+
+        // act
+        Compilation compilation = compile(sourceFile);
+
+        // assert
+        assertThat(compilation).succeededWithoutWarnings();
+    }
+
+    @Test
+    void compile_aggregateWithExistingFullyQualifiedEqualsMethod_succeeds() {
+        // arrange
+        JavaFileObject sourceFile = forSourceLines("com.github.cstettler.cebolla.test.TestAggregate",
+                "package com.github.cstettler.cebolla.test;",
+                "",
+                "import com.github.cstettler.cebolla.stereotype.Aggregate;",
+                "import com.github.cstettler.cebolla.stereotype.AggregateId;",
+                "",
+                "@Aggregate",
+                "public class TestAggregate {",
+                "   private final String id;",
+                "   private final String value;",
+                "",
+                "  public TestAggregate(String id, String value) {",
+                "    this.id = id;",
+                "    this.value = value;",
+                "  }",
+                "",
+                "  @AggregateId",
+                "  String id() {",
+                "    return this.id;",
+                "  }",
+                "",
+                "  public boolean equals(java.lang.Object other) {",
+                "    return true;",
+                "  }",
+                "}"
+        );
+
+        // act
+        Compilation compilation = compile(sourceFile);
+
+        // assert
+        assertThat(compilation).succeededWithoutWarnings();
+    }
+
+    @Test
+    void compile_aggregateWithExistingHashCodeMethod_succeeds() {
+        // arrange
+        JavaFileObject sourceFile = forSourceLines("com.github.cstettler.cebolla.test.TestAggregate",
+                "package com.github.cstettler.cebolla.test;",
+                "",
+                "import com.github.cstettler.cebolla.stereotype.Aggregate;",
+                "import com.github.cstettler.cebolla.stereotype.AggregateId;",
+                "",
+                "@Aggregate",
+                "public class TestAggregate {",
+                "   private final String id;",
+                "   private final String value;",
+                "",
+                "  public TestAggregate(String id, String value) {",
+                "    this.id = id;",
+                "    this.value = value;",
+                "  }",
+                "",
+                "  @AggregateId",
+                "  String id() {",
+                "    return this.id;",
+                "  }",
+                "",
+                "  public int hashCode() {",
+                "    return 0;",
+                "  }",
+                "}"
+        );
+
+        // act
+        Compilation compilation = compile(sourceFile);
+
+        // assert
+        assertThat(compilation).succeededWithoutWarnings();
+    }
+
 }
