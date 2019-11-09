@@ -130,6 +130,93 @@ class ValueObjectCompilationTests {
     }
 
     @Test
+    void compile_valueObjectWithExistingNormalEqualsMethod_succeeds() {
+        // arrange
+        JavaFileObject sourceFile = forSourceLines("com.github.cstettler.cebolla.test.TestValueObject",
+                "package com.github.cstettler.cebolla.test;",
+                "",
+                "import com.github.cstettler.cebolla.stereotype.ValueObject;",
+                "",
+                "@ValueObject",
+                "public class TestValueObject {",
+                "   private final String value;",
+                "",
+                "  public TestValueObject(String value) {",
+                "    this.value = value;",
+                "  }",
+                "",
+                "  public boolean equals(Object other) {",
+                "    return true;",
+                "  }",
+                "}"
+        );
+
+        // act
+        Compilation compilation = compile(sourceFile);
+
+        // assert
+        assertThat(compilation).succeededWithoutWarnings();
+    }
+
+    @Test
+    void compile_valueObjectWithExistingFullyQualifiedEqualsMethod_succeeds() {
+        // arrange
+        JavaFileObject sourceFile = forSourceLines("com.github.cstettler.cebolla.test.TestValueObject",
+                "package com.github.cstettler.cebolla.test;",
+                "",
+                "import com.github.cstettler.cebolla.stereotype.ValueObject;",
+                "",
+                "@ValueObject",
+                "public class TestValueObject {",
+                "   private final String value;",
+                "",
+                "  public TestValueObject(String value) {",
+                "    this.value = value;",
+                "  }",
+                "",
+                "  public boolean equals(java.lang.Object other) {",
+                "    return true;",
+                "  }",
+                "}"
+        );
+
+        // act
+        Compilation compilation = compile(sourceFile);
+
+        // assert
+        assertThat(compilation).succeededWithoutWarnings();
+    }
+
+    @Test
+    void compile_valueObjectWithExistingHashCodeMethod_succeeds() {
+        // arrange
+        JavaFileObject sourceFile = forSourceLines("com.github.cstettler.cebolla.test.TestValueObject",
+                "package com.github.cstettler.cebolla.test;",
+                "",
+                "import com.github.cstettler.cebolla.stereotype.ValueObject;",
+                "",
+                "@ValueObject",
+                "public class TestValueObject {",
+                "   private final String value;",
+                "",
+                "  public TestValueObject(String value) {",
+                "    this.value = value;",
+                "  }",
+                "",
+                "  public int hashCode() {",
+                "    return 0;",
+                "  }",
+                "}"
+        );
+
+        // act
+        Compilation compilation = compile(sourceFile);
+
+        // assert
+        assertThat(compilation).succeededWithoutWarnings();
+    }
+
+    @Test
     void compile_valueObjectWithExistingDefaultConstructor_succeeds() {
         // arrange
         JavaFileObject sourceFile = forSourceLines("com.github.cstettler.cebolla.test.TestValueObject",

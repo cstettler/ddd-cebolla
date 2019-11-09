@@ -10,6 +10,7 @@ import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 
+import javax.lang.model.element.Modifier;
 import java.lang.annotation.Annotation;
 import java.util.stream.Stream;
 
@@ -51,6 +52,7 @@ import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
+import static javax.lang.model.element.Modifier.PUBLIC;
 
 @SuppressWarnings("WeakerAccess")
 class AstUtils {
@@ -131,11 +133,11 @@ class AstUtils {
         return factory().Ident(name);
     }
 
-    static boolean isPrimitive(JCExpression propertyType) {
+    static boolean isPrimitive(JCTree propertyType) {
         return propertyType instanceof JCPrimitiveTypeTree;
     }
 
-    static boolean isPrimitiveOfType(JCExpression propertyType, TypeTag typeTag) {
+    static boolean isPrimitiveOfType(JCTree propertyType, TypeTag typeTag) {
         return isPrimitive(propertyType) && ((JCPrimitiveTypeTree) propertyType).typetag == typeTag;
     }
 
@@ -341,6 +343,33 @@ class AstUtils {
         // TODO improve stereotype annotation type matching (in case of import, only simple name is returned)
         return annotations.stream()
                 .anyMatch((annotation) -> annotation.getAnnotationType().toString().equals(annotationType.getSimpleName()));
+    }
+
+    static boolean hasNoDefaultConstructor(JCClassDecl classDeclaration) {
+        return methodsOf(classDeclaration)
+                .filter((method) -> method.name.toString().equals("<init>"))
+                .noneMatch((member) -> member.params.size() == 0);
+    }
+
+    static boolean hasNoDeclaredEqualsMethod(JCClassDecl classDeclaration) {
+        return methodsOf(classDeclaration)
+                .filter((method) -> method.name.toString().equals("equals"))
+                .filter((method) -> method.getModifiers().getFlags().contains(PUBLIC))
+                .filter((method) -> isPrimitiveOfType(method.getReturnType(), BOOLEAN))
+                .filter((method) -> method.getParameters().size() == 1)
+                .noneMatch((method) -> typeName(method.getParameters().get(0)).equals("Object") || typeName(method.getParameters().get(0)).equals("java.lang.Object"));
+    }
+
+    static boolean hasNoDeclaredHashCodeMethod(JCClassDecl classDeclaration) {
+        return methodsOf(classDeclaration)
+                .filter((method) -> method.name.toString().equals("hashCode"))
+                .filter((method) -> method.getModifiers().getFlags().contains(PUBLIC))
+                .filter((method) -> isPrimitiveOfType(method.getReturnType(), INT))
+                .noneMatch((method) -> method.getParameters().size() == 0);
+    }
+
+    private static String typeName(JCVariableDecl variable) {
+        return variable.getType().toString();
     }
 
 
