@@ -144,6 +144,11 @@ _Internal Building Block: n/a_
 - represents an intention to be fulfilled by a specific component (aggregate, domain service or external bounded 
   context)
 
+## Command Handler (Domain Task Handler)
+
+_Internal Building Block: n/a_
+
+- handles commands triggered by other components
 
 ## Query
 
